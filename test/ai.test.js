@@ -215,7 +215,7 @@ test('Gemini provider reports a concise reason when both endpoints reject the ke
   restoreEnv('GEMINI_API_KEY', previousGeminiKey);
 });
 
-test('OpenRouter provider calls chat completions with Gemini Flash alias', async () => {
+test('OpenRouter provider calls chat completions with Gemini 2.5 Flash', async () => {
   const previousProvider = process.env.PR_LIE_DETECTOR_AI_PROVIDER;
   const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
   const previousOpenRouterModel = process.env.PR_LIE_DETECTOR_OPENROUTER_MODEL;
@@ -279,10 +279,10 @@ test('OpenRouter provider calls chat completions with Gemini Flash alias', async
   assert.equal(capturedUrl, 'https://openrouter.ai/api/v1/chat/completions');
   assert.equal(capturedHeaders.Authorization, 'Bearer fake-openrouter-key');
   assert.equal(capturedHeaders['X-OpenRouter-Title'], 'PR Lie Detector');
-  assert.equal(capturedBody.model, '~google/gemini-flash-latest');
+  assert.equal(capturedBody.model, 'google/gemini-2.5-flash');
   assert.equal(report.enabled, true);
   assert.equal(report.provider, 'openrouter');
-  assert.equal(report.model, '~google/gemini-flash-latest');
+  assert.equal(report.model, 'google/gemini-2.5-flash');
   assert.equal(report.summary, 'OpenRouter AI review is enabled.');
 
   globalThis.fetch = originalFetch;

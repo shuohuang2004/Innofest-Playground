@@ -19,7 +19,7 @@ export async function runAiClaimChecker({ title, body, gitFacts, ruleReport, mod
   if (provider.name === 'openrouter') {
     return runOpenRouterClaimChecker({
       apiKey: provider.apiKey,
-      model: model || process.env.PR_LIE_DETECTOR_OPENROUTER_MODEL || '~google/gemini-flash-latest',
+      model: model || process.env.PR_LIE_DETECTOR_OPENROUTER_MODEL || 'google/gemini-2.5-flash',
       prompt,
     });
   }

@@ -49,7 +49,7 @@ OpenRouter is the default provider in the bundled GitHub workflows. This is the 
 ```sh
 export OPENROUTER_API_KEY="..."
 export PR_LIE_DETECTOR_AI_PROVIDER="openrouter"
-export PR_LIE_DETECTOR_MODEL="~google/gemini-flash-latest"
+export PR_LIE_DETECTOR_MODEL="google/gemini-2.5-flash"
 ```
 
 For the GitHub demo repo:
