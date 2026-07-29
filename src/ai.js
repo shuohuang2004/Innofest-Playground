@@ -91,35 +91,23 @@ async function runOpenAiClaimChecker({ apiKey, model, prompt }) {
 }
 
 async function runGeminiClaimChecker({ apiKey, model, prompt }) {
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-goog-api-key': apiKey,
     },
     body: JSON.stringify({
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: [
-                'You are PR Lie Detector, a code review assistant.',
-                'Your job is to compare what a PR claims with what the diff facts show.',
-                'Never accuse the author of lying. Use wording like "description may be incomplete", "mismatch", or "claim needs evidence".',
-                'Ground every concern in provided facts. Do not invent files, line numbers, CI results, or tests.',
-                'Return only valid JSON. No Markdown fences.',
-                '',
-                prompt,
-              ].join('\n'),
-            },
-          ],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        responseMimeType: 'application/json',
-      },
+      model,
+      input: [
+        'You are PR Lie Detector, a code review assistant.',
+        'Your job is to compare what a PR claims with what the diff facts show.',
+        'Never accuse the author of lying. Use wording like "description may be incomplete", "mismatch", or "claim needs evidence".',
+        'Ground every concern in provided facts. Do not invent files, line numbers, CI results, or tests.',
+        'Return only valid JSON. No Markdown fences.',
+        '',
+        prompt,
+      ].join('\n'),
     }),
   });
 
@@ -251,7 +239,27 @@ function extractOutputText(data) {
 }
 
 function extractGeminiOutputText(data) {
+  if (typeof data.output_text === 'string') {
+    return data.output_text;
+  }
+
+  if (typeof data.outputText === 'string') {
+    return data.outputText;
+  }
+
   const chunks = [];
+
+  for (const step of data.steps || []) {
+    const contents = step.model_output?.content || step.modelOutput?.content || step.content || [];
+
+    for (const item of contents) {
+      if (typeof item.text === 'string') {
+        chunks.push(item.text);
+      } else if (typeof item.text?.text === 'string') {
+        chunks.push(item.text.text);
+      }
+    }
+  }
 
   for (const candidate of data.candidates || []) {
     for (const part of candidate.content?.parts || []) {
