@@ -234,6 +234,14 @@ jobs:
 
 The final version should update the existing marker comment instead of posting a new one each run.
 
+Inline diff comments are opt-in:
+
+```text
+/lie-detect --inline
+```
+
+That still updates the summary comment, then posts up to three PR review comments directly on high-signal changed lines in the `Files changed` tab. The inline commenter deletes previous PR Lie Detector inline comments before posting new ones, so rerunning the command does not create a wall of duplicate comments.
+
 ## Plain-English Demo PR
 
 For audiences who are not backend engineers, use the `demo-store/` files instead of Rails files:

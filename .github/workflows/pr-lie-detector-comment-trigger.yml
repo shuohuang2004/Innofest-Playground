@@ -95,3 +95,17 @@ jobs:
             --github-repo "${{ github.repository }}" \
             --pr "$PR_NUMBER" \
             --body-file report.md
+
+      - name: Create inline PR comments
+        if: ${{ contains(github.event.comment.body, '--inline') }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          node ./bin/pr-lie-detector-inline-comments.js \
+            --github-repo "${{ github.repository }}" \
+            --pr "$PR_NUMBER" \
+            --repo . \
+            --range "origin/$(cat base-ref.txt)...HEAD" \
+            --report-json report.json \
+            --limit 3
