@@ -91,6 +91,25 @@ async function runOpenAiClaimChecker({ apiKey, model, prompt }) {
 }
 
 async function runGeminiClaimChecker({ apiKey, model, prompt }) {
+  const interactionsResult = await runGeminiInteractions({ apiKey, model, prompt });
+
+  if (interactionsResult.enabled || !isInvalidGeminiApiKey(interactionsResult.reason)) {
+    return interactionsResult;
+  }
+
+  const compatibilityResult = await runGeminiOpenAiCompatibility({ apiKey, model, prompt });
+
+  if (compatibilityResult.enabled) {
+    return compatibilityResult;
+  }
+
+  return {
+    ...compatibilityResult,
+    reason: `${interactionsResult.reason} | OpenAI-compatible fallback: ${compatibilityResult.reason}`,
+  };
+}
+
+async function runGeminiInteractions({ apiKey, model, prompt }) {
   const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
     method: 'POST',
     headers: {
@@ -115,8 +134,8 @@ async function runGeminiClaimChecker({ apiKey, model, prompt }) {
     const bodyText = await response.text();
     return {
       enabled: false,
-      provider: 'gemini',
-      reason: `Gemini request failed (${response.status}): ${bodyText.slice(0, 400)}`,
+      provider: 'gemini/interactions',
+      reason: `Gemini Interactions request failed (${response.status}): ${bodyText.slice(0, 400)}`,
     };
   }
 
@@ -127,18 +146,81 @@ async function runGeminiClaimChecker({ apiKey, model, prompt }) {
   if (!parsed) {
     return {
       enabled: false,
-      provider: 'gemini',
-      reason: 'Gemini returned a non-JSON response. Rendered rule-based report only.',
+      provider: 'gemini/interactions',
+      reason: 'Gemini Interactions returned a non-JSON response. Rendered rule-based report only.',
       raw: outputText,
     };
   }
 
   return {
     enabled: true,
-    provider: 'gemini',
+    provider: 'gemini/interactions',
     model,
     ...normalizeAiReport(parsed),
   };
+}
+
+async function runGeminiOpenAiCompatibility({ apiKey, model, prompt }) {
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: [
+            'You are PR Lie Detector, a code review assistant.',
+            'Your job is to compare what a PR claims with what the diff facts show.',
+            'Never accuse the author of lying. Use wording like "description may be incomplete", "mismatch", or "claim needs evidence".',
+            'Ground every concern in provided facts. Do not invent files, line numbers, CI results, or tests.',
+            'Return only valid JSON. No Markdown fences.',
+          ].join('\n'),
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.2,
+    }),
+  });
+
+  if (!response.ok) {
+    const bodyText = await response.text();
+    return {
+      enabled: false,
+      provider: 'gemini/openai-compatible',
+      reason: `Gemini OpenAI-compatible request failed (${response.status}): ${bodyText.slice(0, 400)}`,
+    };
+  }
+
+  const data = await response.json();
+  const outputText = extractOpenAiChatOutputText(data);
+  const parsed = parseJsonObject(outputText);
+
+  if (!parsed) {
+    return {
+      enabled: false,
+      provider: 'gemini/openai-compatible',
+      reason: 'Gemini OpenAI-compatible endpoint returned a non-JSON response. Rendered rule-based report only.',
+      raw: outputText,
+    };
+  }
+
+  return {
+    enabled: true,
+    provider: 'gemini/openai-compatible',
+    model,
+    ...normalizeAiReport(parsed),
+  };
+}
+
+function isInvalidGeminiApiKey(reason = '') {
+  return /API_KEY_INVALID|API key not valid|invalid api key/i.test(reason);
 }
 
 function resolveProvider() {
@@ -289,6 +371,10 @@ function extractGeminiOutputText(data) {
   }
 
   return chunks.join('\n').trim();
+}
+
+function extractOpenAiChatOutputText(data) {
+  return data.choices?.[0]?.message?.content || '';
 }
 
 function parseJsonObject(text) {
