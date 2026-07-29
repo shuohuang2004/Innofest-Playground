@@ -9,7 +9,7 @@ The important direction: this is meant to become a PR comment workflow. The CLI 
 - Scans a PR diff for hard facts: changed controllers, services, routes, migrations, tests, docs, dependencies, CI files, and frozen legacy paths.
 - Flags claim mismatches such as "refactor only" when the diff includes behavior-change signals.
 - Generates a Truth Score, Evidence Board, Reviewer Questions, and a "Make It Honest" PR description.
-- Uses OpenAI when `OPENAI_API_KEY` is present.
+- Uses OpenRouter, Gemini, or OpenAI when the matching API key is present.
 - Falls back to a rule-based report when there is no API key.
 
 ## Quick Start
@@ -44,18 +44,28 @@ node ./bin/pr-lie-detector.js \
 
 Set an API key to enable semantic claim checking and better PR description rewriting.
 
-Gemini is the default provider in the bundled GitHub workflows:
+OpenRouter is the default provider in the bundled GitHub workflows. This is the setup to use with a company OpenRouter key and Gemini Flash:
 
 ```sh
-export GEMINI_API_KEY="..."
-export PR_LIE_DETECTOR_AI_PROVIDER="gemini"
-export PR_LIE_DETECTOR_MODEL="gemini-3.6-flash"
+export OPENROUTER_API_KEY="..."
+export PR_LIE_DETECTOR_AI_PROVIDER="openrouter"
+export PR_LIE_DETECTOR_MODEL="~google/gemini-flash-latest"
 ```
 
 For the GitHub demo repo:
 
 ```sh
-gh secret set GEMINI_API_KEY --repo shuohuang2004/Innofest-Playground --body "..."
+gh secret set OPENROUTER_API_KEY --repo shuohuang2004/Innofest-Playground
+```
+
+The bundled demo workflows also fall back to `GEMINI_API_KEY` for OpenRouter so an earlier demo secret keeps working, but `OPENROUTER_API_KEY` is the clearer name.
+
+Google Gemini API keys are also supported:
+
+```sh
+export GEMINI_API_KEY="..."
+export PR_LIE_DETECTOR_AI_PROVIDER="gemini"
+export PR_LIE_DETECTOR_MODEL="gemini-3.6-flash"
 ```
 
 OpenAI is still supported:
@@ -66,7 +76,7 @@ export PR_LIE_DETECTOR_AI_PROVIDER="openai"
 export PR_LIE_DETECTOR_MODEL="gpt-4.1-mini"
 ```
 
-Without `GEMINI_API_KEY` or `OPENAI_API_KEY`, the tool still runs in rule-based mode.
+Without `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, or `OPENAI_API_KEY`, the tool still runs in rule-based mode.
 
 Use `--no-ai` to force rule-based mode:
 
@@ -189,7 +199,7 @@ The second command exits non-zero because the sample Truth Score is below 70.
 ## Tests
 
 ```sh
-node --test ./test/rules.test.js
+node --test ./test/*.test.js
 ```
 
 `npm test` also works in a normal local checkout. In this Codex desktop WSL/UNC workspace, direct `node --test` is more reliable because Windows `cmd.exe` does not keep UNC paths as the working directory.

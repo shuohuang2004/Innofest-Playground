@@ -215,6 +215,82 @@ test('Gemini provider reports a concise reason when both endpoints reject the ke
   restoreEnv('GEMINI_API_KEY', previousGeminiKey);
 });
 
+test('OpenRouter provider calls chat completions with Gemini Flash alias', async () => {
+  const previousProvider = process.env.PR_LIE_DETECTOR_AI_PROVIDER;
+  const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+  const previousOpenRouterModel = process.env.PR_LIE_DETECTOR_OPENROUTER_MODEL;
+  const originalFetch = globalThis.fetch;
+
+  process.env.PR_LIE_DETECTOR_AI_PROVIDER = 'openrouter';
+  process.env.OPENROUTER_API_KEY = ' OPENROUTER_API_KEY="fake-openrouter-key" ';
+  delete process.env.PR_LIE_DETECTOR_OPENROUTER_MODEL;
+
+  let capturedUrl = '';
+  let capturedHeaders = {};
+  let capturedBody = {};
+  globalThis.fetch = async (url, options) => {
+    capturedUrl = String(url);
+    capturedHeaders = options.headers;
+    capturedBody = JSON.parse(options.body);
+
+    return {
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                summary: 'OpenRouter AI review is enabled.',
+                claims: [],
+                missing_notes: [],
+                reviewer_questions: ['Should the PR description mention the migration?'],
+                honest_title: 'Document template update behavior changes',
+                honest_description: 'Updates template behavior and database state.',
+                confidence: 'high',
+              }),
+            },
+          },
+        ],
+      }),
+    };
+  };
+
+  const report = await runAiClaimChecker({
+    title: 'Refactor template update service',
+    body: '',
+    gitFacts: {
+      range: 'sample',
+      changedFiles: [],
+      stats: '',
+      commits: '',
+      diffExcerpt: '',
+      diffTruncated: false,
+    },
+    ruleReport: {
+      claims: [],
+      mismatches: [],
+      signals: [],
+      truthScore: 100,
+      riskLevel: 'low',
+    },
+    model: '',
+  });
+
+  assert.equal(capturedUrl, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(capturedHeaders.Authorization, 'Bearer fake-openrouter-key');
+  assert.equal(capturedHeaders['X-OpenRouter-Title'], 'PR Lie Detector');
+  assert.equal(capturedBody.model, '~google/gemini-flash-latest');
+  assert.equal(report.enabled, true);
+  assert.equal(report.provider, 'openrouter');
+  assert.equal(report.model, '~google/gemini-flash-latest');
+  assert.equal(report.summary, 'OpenRouter AI review is enabled.');
+
+  globalThis.fetch = originalFetch;
+  restoreEnv('PR_LIE_DETECTOR_AI_PROVIDER', previousProvider);
+  restoreEnv('OPENROUTER_API_KEY', previousOpenRouterKey);
+  restoreEnv('PR_LIE_DETECTOR_OPENROUTER_MODEL', previousOpenRouterModel);
+});
+
 function restoreEnv(key, value) {
   if (value === undefined) {
     delete process.env[key];

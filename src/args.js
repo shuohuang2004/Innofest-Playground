@@ -110,7 +110,7 @@ Options:
   --json <path>              Write full report JSON to a file.
   --model <model>            AI model override. Defaults to provider-specific model.
   --max-diff-chars <number>  Diff excerpt budget for AI. Defaults to 14000.
-  --no-ai                    Disable OpenAI even if OPENAI_API_KEY exists.
+  --no-ai                    Disable AI even if an API key exists.
   --no-github-comment        Omit the hidden PR-comment marker.
 `;
 }

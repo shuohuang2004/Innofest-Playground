@@ -16,6 +16,14 @@ export async function runAiClaimChecker({ title, body, gitFacts, ruleReport, mod
     });
   }
 
+  if (provider.name === 'openrouter') {
+    return runOpenRouterClaimChecker({
+      apiKey: provider.apiKey,
+      model: model || process.env.PR_LIE_DETECTOR_OPENROUTER_MODEL || '~google/gemini-flash-latest',
+      prompt,
+    });
+  }
+
   return runOpenAiClaimChecker({
     apiKey: provider.apiKey,
     model: model || process.env.PR_LIE_DETECTOR_OPENAI_MODEL || 'gpt-4.1-mini',
@@ -226,16 +234,94 @@ async function runGeminiOpenAiCompatibility({ apiKey, model, prompt }) {
   };
 }
 
+async function runOpenRouterClaimChecker({ apiKey, model, prompt }) {
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+    'X-OpenRouter-Title': process.env.PR_LIE_DETECTOR_OPENROUTER_TITLE || 'PR Lie Detector',
+  };
+  const referer = process.env.PR_LIE_DETECTOR_OPENROUTER_REFERER || process.env.GITHUB_SERVER_URL;
+
+  if (referer) {
+    headers['HTTP-Referer'] = referer;
+  }
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: [
+            'You are PR Lie Detector, a code review assistant.',
+            'Your job is to compare what a PR claims with what the diff facts show.',
+            'Never accuse the author of lying. Use wording like "description may be incomplete", "mismatch", or "claim needs evidence".',
+            'Ground every concern in provided facts. Do not invent files, line numbers, CI results, or tests.',
+            'Return only valid JSON. No Markdown fences.',
+          ].join('\n'),
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.2,
+    }),
+  });
+
+  if (!response.ok) {
+    const bodyText = await response.text();
+    return {
+      enabled: false,
+      provider: 'openrouter',
+      reason: `OpenRouter request failed (${response.status}): ${bodyText.slice(0, 400)}`,
+    };
+  }
+
+  const data = await response.json();
+  const outputText = extractOpenAiChatOutputText(data);
+  const parsed = parseJsonObject(outputText);
+
+  if (!parsed) {
+    return {
+      enabled: false,
+      provider: 'openrouter',
+      reason: 'OpenRouter returned a non-JSON response. Rendered rule-based report only.',
+      raw: outputText,
+    };
+  }
+
+  return {
+    enabled: true,
+    provider: 'openrouter',
+    model,
+    ...normalizeAiReport(parsed),
+  };
+}
+
 function isInvalidGeminiApiKey(reason = '') {
   return /API_KEY_INVALID|API key not valid|invalid api key|pass a valid API key/i.test(reason);
 }
 
 function resolveProvider() {
   const requested = (process.env.PR_LIE_DETECTOR_AI_PROVIDER || 'auto').toLowerCase();
+  const openRouterKey = normalizeSecretKey(process.env.OPENROUTER_API_KEY);
   const openAiKey = normalizeSecretKey(process.env.OPENAI_API_KEY);
   const geminiKey = normalizeSecretKey(
     process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY,
   );
+
+  if (requested === 'openrouter') {
+    return openRouterKey
+      ? { enabled: true, name: 'openrouter', apiKey: openRouterKey }
+      : {
+          enabled: false,
+          provider: 'openrouter',
+          reason: 'OPENROUTER_API_KEY is not set. Rendered rule-based report only.',
+        };
+  }
 
   if (requested === 'gemini') {
     return geminiKey
@@ -249,6 +335,10 @@ function resolveProvider() {
       : { enabled: false, provider: 'openai', reason: 'OPENAI_API_KEY is not set. Rendered rule-based report only.' };
   }
 
+  if (openRouterKey) {
+    return { enabled: true, name: 'openrouter', apiKey: openRouterKey };
+  }
+
   if (geminiKey) {
     return { enabled: true, name: 'gemini', apiKey: geminiKey };
   }
@@ -260,7 +350,8 @@ function resolveProvider() {
   return {
     enabled: false,
     provider: 'none',
-    reason: 'No AI key found. Set GEMINI_API_KEY or OPENAI_API_KEY to enable AI; rendered rule-based report only.',
+    reason:
+      'No AI key found. Set OPENROUTER_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY to enable AI; rendered rule-based report only.',
   };
 }
 
