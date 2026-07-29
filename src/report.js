@@ -165,14 +165,12 @@ function appendScoreBreakdown(lines, ruleReport) {
   }
 
   lines.push(`- Starts at ${breakdown.baseScore}. AI does not affect the score.`);
+  lines.push('');
+  lines.push('| Points | Fixed rule triggered |');
+  lines.push('| ---: | --- |');
 
-  for (const deduction of breakdown.deductions.slice(0, 3)) {
-    lines.push(`- **-${deduction.points}:** ${deduction.label}`);
-  }
-
-  if (breakdown.deductions.length > 3) {
-    const remaining = breakdown.deductions.length - 3;
-    lines.push(`- ${remaining} more fixed deduction${remaining === 1 ? '' : 's'} in full rubric.`);
+  for (const deduction of breakdown.deductions) {
+    lines.push(`| -${deduction.points} | ${escapeTable(deduction.rubricLabel || deduction.label)} |`);
   }
 }
 
@@ -202,7 +200,7 @@ function appendScoringRubric(lines, ruleReport) {
 
   for (const deduction of breakdown.deductions) {
     lines.push(
-      `| -${deduction.points} | ${formatDeductionSource(deduction.source)} | ${deduction.severity} | ${escapeTable(deduction.label)} |`,
+      `| -${deduction.points} | ${formatDeductionSource(deduction.source)} | ${deduction.severity} | ${escapeTable(deduction.rubricLabel || deduction.label)} |`,
     );
   }
 

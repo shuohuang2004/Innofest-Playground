@@ -10,7 +10,7 @@ The GitHub comment is intentionally short:
 
 1. Score, risk, and AI status.
 2. A GitHub alert with the one-line verdict.
-3. Fixed score breakdown.
+3. Triggered scoring table with every fixed deduction for this PR.
 4. Three reviewer actions.
 5. Three top evidence items.
 6. Full claim analysis, scoring rubric, suggested PR text, and git stats inside a collapsible details block.
