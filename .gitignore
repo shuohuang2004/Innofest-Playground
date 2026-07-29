@@ -9,3 +9,7 @@ report.json
 sample-report.md
 sample-report.json
 sample-no-key-report.md
+sample-gemini-missing-key.md
+sample-gemini-missing-key.json
+demo-report.md
+demo-report.json

@@ -5,7 +5,6 @@ import { UserFacingError } from './errors.js';
 
 const DEFAULT_BASE = 'origin/dev';
 const DEFAULT_HEAD = 'HEAD';
-const DEFAULT_MODEL = 'gpt-4.1-mini';
 
 export function parseArgs(argv) {
   const options = {
@@ -15,7 +14,7 @@ export function parseArgs(argv) {
     title: process.env.PR_TITLE || process.env.GITHUB_PR_TITLE || '',
     body: process.env.PR_BODY || process.env.GITHUB_PR_BODY || '',
     ai: process.env.PR_LIE_DETECTOR_AI_ENABLED !== 'false',
-    model: process.env.PR_LIE_DETECTOR_MODEL || process.env.OPENAI_MODEL || DEFAULT_MODEL,
+    model: process.env.PR_LIE_DETECTOR_MODEL || process.env.OPENAI_MODEL || '',
     maxDiffChars: Number(process.env.PR_LIE_DETECTOR_MAX_DIFF_CHARS || 14000),
     output: '',
     jsonOutput: '',
@@ -109,7 +108,7 @@ Options:
   --body-file <path>         Read PR body from a file.
   --output, -o <path>        Write Markdown report to a file.
   --json <path>              Write full report JSON to a file.
-  --model <model>            OpenAI model. Defaults to ${DEFAULT_MODEL}.
+  --model <model>            AI model override. Defaults to provider-specific model.
   --max-diff-chars <number>  Diff excerpt budget for AI. Defaults to 14000.
   --no-ai                    Disable OpenAI even if OPENAI_API_KEY exists.
   --no-github-comment        Omit the hidden PR-comment marker.

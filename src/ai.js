@@ -1,14 +1,29 @@
 export async function runAiClaimChecker({ title, body, gitFacts, ruleReport, model }) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const provider = resolveProvider();
 
-  if (!apiKey) {
-    return {
-      enabled: false,
-      reason: 'OPENAI_API_KEY is not set. Rendered rule-based report only.',
-    };
+  if (!provider.enabled) {
+    return provider;
   }
 
   const payload = buildAiPayload({ title, body, gitFacts, ruleReport });
+  const prompt = buildPrompt(payload);
+
+  if (provider.name === 'gemini') {
+    return runGeminiClaimChecker({
+      apiKey: provider.apiKey,
+      model: model || process.env.PR_LIE_DETECTOR_GEMINI_MODEL || 'gemini-3.6-flash',
+      prompt,
+    });
+  }
+
+  return runOpenAiClaimChecker({
+    apiKey: provider.apiKey,
+    model: model || process.env.PR_LIE_DETECTOR_OPENAI_MODEL || 'gpt-4.1-mini',
+    prompt,
+  });
+}
+
+async function runOpenAiClaimChecker({ apiKey, model, prompt }) {
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
@@ -38,13 +53,7 @@ export async function runAiClaimChecker({ title, body, gitFacts, ruleReport, mod
           content: [
             {
               type: 'input_text',
-              text: [
-                'Analyze this PR and return JSON with this shape:',
-                JSON.stringify(aiSchemaExample(), null, 2),
-                '',
-                'PR facts:',
-                JSON.stringify(payload, null, 2),
-              ].join('\n'),
+              text: prompt,
             },
           ],
         },
@@ -75,9 +84,115 @@ export async function runAiClaimChecker({ title, body, gitFacts, ruleReport, mod
 
   return {
     enabled: true,
+    provider: 'openai',
     model,
     ...normalizeAiReport(parsed),
   };
+}
+
+async function runGeminiClaimChecker({ apiKey, model, prompt }) {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: [
+                'You are PR Lie Detector, a code review assistant.',
+                'Your job is to compare what a PR claims with what the diff facts show.',
+                'Never accuse the author of lying. Use wording like "description may be incomplete", "mismatch", or "claim needs evidence".',
+                'Ground every concern in provided facts. Do not invent files, line numbers, CI results, or tests.',
+                'Return only valid JSON. No Markdown fences.',
+                '',
+                prompt,
+              ].join('\n'),
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const bodyText = await response.text();
+    return {
+      enabled: false,
+      provider: 'gemini',
+      reason: `Gemini request failed (${response.status}): ${bodyText.slice(0, 400)}`,
+    };
+  }
+
+  const data = await response.json();
+  const outputText = extractGeminiOutputText(data);
+  const parsed = parseJsonObject(outputText);
+
+  if (!parsed) {
+    return {
+      enabled: false,
+      provider: 'gemini',
+      reason: 'Gemini returned a non-JSON response. Rendered rule-based report only.',
+      raw: outputText,
+    };
+  }
+
+  return {
+    enabled: true,
+    provider: 'gemini',
+    model,
+    ...normalizeAiReport(parsed),
+  };
+}
+
+function resolveProvider() {
+  const requested = (process.env.PR_LIE_DETECTOR_AI_PROVIDER || 'auto').toLowerCase();
+  const openAiKey = process.env.OPENAI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY;
+
+  if (requested === 'gemini') {
+    return geminiKey
+      ? { enabled: true, name: 'gemini', apiKey: geminiKey }
+      : { enabled: false, provider: 'gemini', reason: 'GEMINI_API_KEY is not set. Rendered rule-based report only.' };
+  }
+
+  if (requested === 'openai') {
+    return openAiKey
+      ? { enabled: true, name: 'openai', apiKey: openAiKey }
+      : { enabled: false, provider: 'openai', reason: 'OPENAI_API_KEY is not set. Rendered rule-based report only.' };
+  }
+
+  if (geminiKey) {
+    return { enabled: true, name: 'gemini', apiKey: geminiKey };
+  }
+
+  if (openAiKey) {
+    return { enabled: true, name: 'openai', apiKey: openAiKey };
+  }
+
+  return {
+    enabled: false,
+    provider: 'none',
+    reason: 'No AI key found. Set GEMINI_API_KEY or OPENAI_API_KEY to enable AI; rendered rule-based report only.',
+  };
+}
+
+function buildPrompt(payload) {
+  return [
+    'Analyze this PR and return JSON with this shape:',
+    JSON.stringify(aiSchemaExample(), null, 2),
+    '',
+    'PR facts:',
+    JSON.stringify(payload, null, 2),
+  ].join('\n');
 }
 
 function buildAiPayload({ title, body, gitFacts, ruleReport }) {
@@ -128,6 +243,20 @@ function extractOutputText(data) {
     for (const content of item.content || []) {
       if (typeof content.text === 'string') {
         chunks.push(content.text);
+      }
+    }
+  }
+
+  return chunks.join('\n').trim();
+}
+
+function extractGeminiOutputText(data) {
+  const chunks = [];
+
+  for (const candidate of data.candidates || []) {
+    for (const part of candidate.content?.parts || []) {
+      if (typeof part.text === 'string') {
+        chunks.push(part.text);
       }
     }
   }

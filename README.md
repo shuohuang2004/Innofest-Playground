@@ -40,16 +40,33 @@ node ./bin/pr-lie-detector.js \
   --title "Refactor template update service"
 ```
 
-## OpenAI Mode
+## AI Mode
 
-Set an API key to enable semantic claim checking and better PR description rewriting:
+Set an API key to enable semantic claim checking and better PR description rewriting.
+
+Gemini is the default provider in the bundled GitHub workflows:
+
+```sh
+export GEMINI_API_KEY="..."
+export PR_LIE_DETECTOR_AI_PROVIDER="gemini"
+export PR_LIE_DETECTOR_MODEL="gemini-3.6-flash"
+```
+
+For the GitHub demo repo:
+
+```sh
+gh secret set GEMINI_API_KEY --repo shuohuang2004/Innofest-Playground --body "..."
+```
+
+OpenAI is still supported:
 
 ```sh
 export OPENAI_API_KEY="..."
+export PR_LIE_DETECTOR_AI_PROVIDER="openai"
 export PR_LIE_DETECTOR_MODEL="gpt-4.1-mini"
 ```
 
-Without `OPENAI_API_KEY`, the tool still runs in rule-based mode.
+Without `GEMINI_API_KEY` or `OPENAI_API_KEY`, the tool still runs in rule-based mode.
 
 Use `--no-ai` to force rule-based mode:
 

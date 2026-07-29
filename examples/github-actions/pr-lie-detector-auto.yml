@@ -47,8 +47,10 @@ jobs:
 
       - name: Generate truth report
         env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PR_LIE_DETECTOR_MODEL: gpt-4.1-mini
+          PR_LIE_DETECTOR_AI_PROVIDER: gemini
+          PR_LIE_DETECTOR_MODEL: gemini-3.6-flash
         run: |
           node detector/bin/pr-lie-detector.js \
             --repo repo \
