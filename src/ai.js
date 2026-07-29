@@ -143,8 +143,10 @@ async function runGeminiClaimChecker({ apiKey, model, prompt }) {
 
 function resolveProvider() {
   const requested = (process.env.PR_LIE_DETECTOR_AI_PROVIDER || 'auto').toLowerCase();
-  const openAiKey = process.env.OPENAI_API_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY;
+  const openAiKey = normalizeSecretKey(process.env.OPENAI_API_KEY);
+  const geminiKey = normalizeSecretKey(
+    process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY,
+  );
 
   if (requested === 'gemini') {
     return geminiKey
@@ -171,6 +173,23 @@ function resolveProvider() {
     provider: 'none',
     reason: 'No AI key found. Set GEMINI_API_KEY or OPENAI_API_KEY to enable AI; rendered rule-based report only.',
   };
+}
+
+function normalizeSecretKey(value) {
+  if (!value) {
+    return '';
+  }
+
+  let key = String(value).trim();
+
+  if (/^[A-Z0-9_]+_API_KEY\s*=/.test(key)) {
+    key = key.split('=', 2)[1].trim();
+  }
+
+  key = key.replace(/^['"]|['"]$/g, '');
+  key = key.replace(/\s+/g, '');
+
+  return key;
 }
 
 function buildPrompt(payload) {
