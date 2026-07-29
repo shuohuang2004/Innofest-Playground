@@ -176,6 +176,8 @@ test('renders success banner image when a perfect truth score media URL is confi
 
   assert.match(report.markdown, /!\[PR Lie Detector\]\(https:\/\/example.com\/truth-score-100.jpg\)/);
   assert.doesNotMatch(report.markdown, /pr-lie-detector.gif/);
+  assert.match(report.markdown, /> \[!TIP\]/);
+  assert.doesNotMatch(report.markdown, /> \[!CAUTION\]/);
 
   if (previousBannerUrl === undefined) {
     delete process.env.PR_LIE_DETECTOR_BANNER_URL;

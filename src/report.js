@@ -109,14 +109,17 @@ function appendRiskAlert(lines, { ruleReport, aiReport }) {
   const verdict = aiReport?.enabled && aiReport.summary ? aiReport.summary : ruleReport.ruleVerdict;
   const hasTruthDeductions = (ruleReport.scoreBreakdown?.deductions.length || 0) > 0;
 
+  if (!hasTruthDeductions) {
+    lines.push('> [!TIP]');
+    lines.push(`> ${compactSentence(verdict, 240)}`);
+    lines.push(`> Truthful description. Review risk remains ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel}.`);
+    return;
+  }
+
   if (ruleReport.riskLevel === 'high') {
     lines.push('> [!CAUTION]');
     lines.push(`> ${compactSentence(verdict, 240)}`);
-    lines.push(
-      hasTruthDeductions
-        ? '> Treat this PR description as incomplete before requesting review.'
-        : '> Truthful description, high review risk. Review carefully before merge.',
-    );
+    lines.push('> Treat this PR description as incomplete before requesting review.');
     return;
   }
 
