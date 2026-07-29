@@ -57,7 +57,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_LIE_DETECTOR_REVIEW_THRESHOLD: 70
+          PR_LIE_DETECTOR_REVIEW_THRESHOLD: 80
         run: |
           node ./bin/pr-lie-detector-review-gate.js \
             --mode unrequest \
@@ -82,5 +82,5 @@ jobs:
           node ./bin/pr-lie-detector-review-gate.js \
             --mode check \
             --report-json report.json \
-            --threshold 70 \
+            --threshold 80 \
             --fail

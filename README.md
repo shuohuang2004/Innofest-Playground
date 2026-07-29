@@ -168,7 +168,7 @@ There are two GitHub Action templates in `examples/github-actions/`:
 
 - `pr-lie-detector-comment-trigger.yml`: runs only when someone comments `/lie-detect` on a PR.
 - `pr-lie-detector-auto.yml`: runs automatically when a PR is opened, edited, synchronized, or reopened.
-- `pr-lie-detector-review-gate.yml`: runs when review is requested and blocks reviewer assignment when the Truth Score is below 70.
+- `pr-lie-detector-review-gate.yml`: runs when review is requested and blocks reviewer assignment when the Truth Score is below 80.
 
 For the hackathon demo, the comment-trigger mode is the most fun:
 
@@ -260,7 +260,7 @@ GitHub does not provide a native "prevent someone from clicking Request review" 
 1. Someone requests review.
 2. GitHub emits a `pull_request` event with type `review_requested`.
 3. PR Lie Detector generates `report.json` and `report.md`.
-4. If `ruleReport.truthScore < 70`, the review gate removes that requested reviewer/team through the GitHub API.
+4. If `ruleReport.truthScore < 80`, the review gate removes that requested reviewer/team through the GitHub API.
 5. The same PR Lie Detector comment is updated with the gate result.
 6. The workflow can fail, so branch protection can block merge until the PR is made more honest.
 
@@ -268,10 +268,10 @@ Local gate demo:
 
 ```sh
 node ./bin/pr-lie-detector.js --sample risky-refactor --no-ai --json sample-report.json --output sample-report.md
-node ./bin/pr-lie-detector-review-gate.js --report-json sample-report.json --report-md sample-report.md --threshold 70 --fail
+node ./bin/pr-lie-detector-review-gate.js --report-json sample-report.json --report-md sample-report.md --threshold 80 --fail
 ```
 
-The second command exits non-zero because the sample Truth Score is below 70.
+The second command exits non-zero because the sample Truth Score is below 80.
 
 ## Tests
 

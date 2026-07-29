@@ -74,7 +74,7 @@ function parseArgs(argv) {
   const options = {
     reportJson: 'report.json',
     reportMd: '',
-    threshold: Number(process.env.PR_LIE_DETECTOR_REVIEW_THRESHOLD || 70),
+    threshold: Number(process.env.PR_LIE_DETECTOR_REVIEW_THRESHOLD || 80),
     mode: 'check',
     githubRepo: process.env.GITHUB_REPOSITORY || '',
     pr: process.env.PR_NUMBER || '',
@@ -148,7 +148,7 @@ function helpText() {
   return `PR Lie Detector Review Gate
 
 Usage:
-  pr-lie-detector-review-gate --report-json report.json --threshold 70 --fail
+  pr-lie-detector-review-gate --report-json report.json --threshold 80 --fail
   pr-lie-detector-review-gate --mode unrequest --github-repo owner/repo --pr 123 --report-json report.json --report-md report.md
 
 Modes:

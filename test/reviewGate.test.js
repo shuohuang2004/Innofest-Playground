@@ -5,8 +5,8 @@ import { evaluateReviewGate, requestedReviewersFromEvent } from '../src/reviewGa
 
 test('blocks when score is below threshold', () => {
   const gate = evaluateReviewGate({
-    report: { ruleReport: { truthScore: 69 } },
-    threshold: 70,
+    report: { ruleReport: { truthScore: 79 } },
+    threshold: 80,
   });
 
   assert.equal(gate.blocked, true);
@@ -15,8 +15,8 @@ test('blocks when score is below threshold', () => {
 
 test('allows when score is equal to threshold', () => {
   const gate = evaluateReviewGate({
-    report: { ruleReport: { truthScore: 70 } },
-    threshold: 70,
+    report: { ruleReport: { truthScore: 80 } },
+    threshold: 80,
   });
 
   assert.equal(gate.blocked, false);

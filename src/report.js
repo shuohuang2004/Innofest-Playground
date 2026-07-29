@@ -301,7 +301,7 @@ function buildReviewerActions({ title, ruleReport, aiReport }) {
     actions.push(`Ask author to rename the PR to: \`${inlineCode(honestTitle)}\`.`);
   }
 
-  if (ruleReport.truthScore < 70) {
+  if (ruleReport.truthScore < 80) {
     actions.push('Pause review assignment until scope, tests, and rollout notes are clear.');
   }
 
