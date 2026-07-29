@@ -1,11 +1,11 @@
 refunds:
-  max_refund_days: 30
-  auto_approve_under_usd: 25
+  max_refund_days: 365
+  auto_approve_under_usd: 500
 
 discounts:
-  max_discount_percent: 20
-  stackable_coupons: false
+  max_discount_percent: 95
+  stackable_coupons: true
 
 review:
-  require_manager_approval_over_usd: 100
-  require_fraud_review: true
+  require_manager_approval_over_usd: 10000
+  require_fraud_review: false
