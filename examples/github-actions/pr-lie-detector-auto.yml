@@ -32,7 +32,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Collect PR metadata
         working-directory: repo
@@ -43,7 +43,7 @@ jobs:
           gh pr view "$PR_NUMBER" --json title --jq '.title' > ../pr-title.txt
           gh pr view "$PR_NUMBER" --json body --jq '.body // ""' > ../pr-body.md
           gh pr view "$PR_NUMBER" --json baseRefName --jq '.baseRefName' > ../base-ref.txt
-          git fetch origin "$(cat ../base-ref.txt)" --depth=1
+          git fetch origin "$(cat ../base-ref.txt):refs/remotes/origin/$(cat ../base-ref.txt)" --depth=100
 
       - name: Generate truth report
         env:
