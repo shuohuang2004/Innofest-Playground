@@ -39,7 +39,7 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
   lines.push('## PR Lie Detector');
   lines.push('');
   lines.push(
-    `**Score:** ${ruleReport.truthScore}/100 | **Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel} | **AI:** ${formatAiStatus(aiReport)}`,
+    `**Score:** ${formatScore(ruleReport)} | **Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel} | **AI:** ${formatAiStatus(aiReport)}`,
   );
   lines.push('');
   appendRiskAlert(lines, { ruleReport, aiReport });
@@ -49,6 +49,11 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
     lines.push('> Warning: ' + gitFacts.warnings.join(' '));
     lines.push('');
   }
+
+  lines.push('### Score Breakdown');
+  lines.push('');
+  appendScoreBreakdown(lines, ruleReport);
+  lines.push('');
 
   lines.push('### Reviewer Action');
   lines.push('');
@@ -72,6 +77,11 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
   lines.push('### Evidence Board');
   lines.push('');
   appendEvidenceBoard(lines, ruleReport);
+  lines.push('');
+
+  lines.push('### Scoring Rubric');
+  lines.push('');
+  appendScoringRubric(lines, ruleReport);
   lines.push('');
 
   lines.push('### Reviewer Questions');
@@ -121,6 +131,16 @@ function appendRiskAlert(lines, { ruleReport, aiReport }) {
   lines.push(`> ${compactSentence(verdict, 240)}`);
 }
 
+function formatScore(ruleReport) {
+  const breakdown = ruleReport.scoreBreakdown;
+
+  if (!breakdown) {
+    return `${ruleReport.truthScore}/100`;
+  }
+
+  return `${breakdown.score}/100 (${breakdown.baseScore} - ${breakdown.totalDeducted} fixed deductions)`;
+}
+
 function formatAiStatus(aiReport) {
   if (aiReport?.enabled) {
     const provider = aiReport.provider || 'AI';
@@ -133,6 +153,76 @@ function formatAiStatus(aiReport) {
   }
 
   return 'rule-based fallback';
+}
+
+function appendScoreBreakdown(lines, ruleReport) {
+  const breakdown = ruleReport.scoreBreakdown;
+
+  if (!breakdown || breakdown.deductions.length === 0) {
+    lines.push('- Starts at 100. No fixed deductions were triggered.');
+    lines.push('- AI does not affect the score.');
+    return;
+  }
+
+  lines.push(`- Starts at ${breakdown.baseScore}. AI does not affect the score.`);
+
+  for (const deduction of breakdown.deductions.slice(0, 3)) {
+    lines.push(`- **-${deduction.points}:** ${deduction.label}`);
+  }
+
+  if (breakdown.deductions.length > 3) {
+    const remaining = breakdown.deductions.length - 3;
+    lines.push(`- ${remaining} more fixed deduction${remaining === 1 ? '' : 's'} in full rubric.`);
+  }
+}
+
+function appendScoringRubric(lines, ruleReport) {
+  const breakdown = ruleReport.scoreBreakdown;
+
+  if (!breakdown) {
+    lines.push('- Scoring breakdown was not generated.');
+    return;
+  }
+
+  lines.push('| Rule Type | High | Medium | Low |');
+  lines.push('| --- | ---: | ---: | ---: |');
+  lines.push(
+    `| Claim mismatch | -${breakdown.rubric.claimMismatch.high} | -${breakdown.rubric.claimMismatch.medium} | -${breakdown.rubric.claimMismatch.low} |`,
+  );
+  lines.push(
+    `| Risk signal | -${breakdown.rubric.riskSignal.high} | -${breakdown.rubric.riskSignal.medium} | -${breakdown.rubric.riskSignal.low} |`,
+  );
+  lines.push('');
+  lines.push('**Triggered deductions**');
+  lines.push('');
+  lines.push('| Points | Type | Severity | Rule |');
+  lines.push('| ---: | --- | --- | --- |');
+
+  for (const deduction of breakdown.deductions) {
+    lines.push(
+      `| -${deduction.points} | ${formatDeductionSource(deduction.source)} | ${deduction.severity} | ${escapeTable(deduction.label)} |`,
+    );
+  }
+
+  lines.push('');
+  lines.push('**Risk thresholds**');
+  lines.push('');
+
+  for (const threshold of breakdown.rubric.riskThresholds) {
+    lines.push(`- ${threshold}`);
+  }
+}
+
+function formatDeductionSource(source) {
+  if (source === 'claim_mismatch') {
+    return 'Claim mismatch';
+  }
+
+  if (source === 'risk_signal') {
+    return 'Risk signal';
+  }
+
+  return source;
 }
 
 function compactReason(reason) {

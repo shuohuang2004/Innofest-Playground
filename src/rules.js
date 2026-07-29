@@ -50,6 +50,21 @@ const BEHAVIOR_LINE_PATTERN =
 const ASSERTION_LINE_PATTERN =
   /^\s*-\s*(assert|refute|expect|must_|wont_|should|it\s+['"`]|test\s+['"`])/i;
 
+const SCORE_RUBRIC = {
+  baseScore: 100,
+  minimumScore: 0,
+  mismatchPenalties: {
+    high: 22,
+    medium: 11,
+    low: 5,
+  },
+  signalPenalties: {
+    high: 11,
+    medium: 5,
+    low: 2,
+  },
+};
+
 export function scanRules({ title, body, gitFacts }) {
   const changedFiles = gitFacts.changedFiles;
   const paths = changedFiles.map((file) => file.path);
@@ -150,7 +165,8 @@ export function scanRules({ title, body, gitFacts }) {
   }
 
   const mismatches = detectRuleBasedMismatches({ claims, categories, behaviorSignals, signals });
-  const truthScore = scoreTruth({ mismatches, signals });
+  const scoreBreakdown = scoreTruth({ mismatches, signals });
+  const truthScore = scoreBreakdown.score;
   const riskLevel = scoreToRisk(truthScore, signals, mismatches);
 
   return {
@@ -160,6 +176,7 @@ export function scanRules({ title, body, gitFacts }) {
     deletedAssertions,
     signals,
     mismatches,
+    scoreBreakdown,
     truthScore,
     riskLevel,
     ruleVerdict: verdictFor({ truthScore, mismatches, signals }),
@@ -313,16 +330,42 @@ function detectRuleBasedMismatches({ claims, categories, behaviorSignals, signal
 }
 
 function scoreTruth({ mismatches, signals }) {
-  const penalties = {
-    high: 22,
-    medium: 11,
-    low: 5,
+  const deductions = [
+    ...mismatches.map((mismatch) => ({
+      source: 'claim_mismatch',
+      id: mismatch.id,
+      label: mismatch.claim,
+      severity: mismatch.severity,
+      points: SCORE_RUBRIC.mismatchPenalties[mismatch.severity] || 0,
+    })),
+    ...signals.map((signal) => ({
+      source: 'risk_signal',
+      id: signal.id,
+      label: signal.title,
+      severity: signal.severity,
+      points: SCORE_RUBRIC.signalPenalties[signal.severity] || 0,
+    })),
+  ].filter((deduction) => deduction.points > 0);
+
+  const totalDeducted = deductions.reduce((sum, deduction) => sum + deduction.points, 0);
+  const score = Math.max(SCORE_RUBRIC.minimumScore, SCORE_RUBRIC.baseScore - totalDeducted);
+
+  return {
+    baseScore: SCORE_RUBRIC.baseScore,
+    minimumScore: SCORE_RUBRIC.minimumScore,
+    score,
+    totalDeducted,
+    deductions,
+    rubric: {
+      claimMismatch: { ...SCORE_RUBRIC.mismatchPenalties },
+      riskSignal: { ...SCORE_RUBRIC.signalPenalties },
+      riskThresholds: [
+        'High: score < 60, or any high-severity mismatch/signal',
+        'Medium: score < 82',
+        'Low: score >= 82 with no high-severity mismatch/signal',
+      ],
+    },
   };
-
-  const mismatchPenalty = mismatches.reduce((sum, mismatch) => sum + penalties[mismatch.severity], 0);
-  const signalPenalty = signals.reduce((sum, signal) => sum + Math.floor(penalties[signal.severity] / 2), 0);
-
-  return Math.max(0, 100 - mismatchPenalty - signalPenalty);
 }
 
 function scoreToRisk(score, signals, mismatches) {

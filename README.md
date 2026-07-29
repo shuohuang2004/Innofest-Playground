@@ -10,15 +10,41 @@ The GitHub comment is intentionally short:
 
 1. Score, risk, and AI status.
 2. A GitHub alert with the one-line verdict.
-3. Three reviewer actions.
-4. Three top evidence items.
-5. Full claim analysis, suggested PR text, and git stats inside a collapsible details block.
+3. Fixed score breakdown.
+4. Three reviewer actions.
+5. Three top evidence items.
+6. Full claim analysis, scoring rubric, suggested PR text, and git stats inside a collapsible details block.
 
 Demo line:
 
 ```text
 PR Lie Detector catches when "refactor / no behavior change" does not match the diff, then gives reviewers the next three things to ask before review.
 ```
+
+## Truth Score Rubric
+
+Truth Score is deterministic. AI never changes the score; AI only rewrites the explanation, reviewer questions, and suggested PR text.
+
+The score starts at 100 and subtracts fixed deductions:
+
+| Rule Type | High | Medium | Low |
+| --- | ---: | ---: | ---: |
+| Claim mismatch | -22 | -11 | -5 |
+| Risk signal | -11 | -5 | -2 |
+
+Examples:
+
+- Claim says "refactor/no behavior change" but diff changes routes, controller, migration, or behavior lines: high claim mismatch, `-22`.
+- Database migration changed: high risk signal, `-11`.
+- API/controller changed without docs: medium risk signal, `-5`.
+- Service/controller changed without tests: medium risk signal, `-5` each.
+- CI/CD config changed: low risk signal, `-2`.
+
+Risk level is also deterministic:
+
+- High: score below 60, or any high-severity mismatch/signal.
+- Medium: score below 82.
+- Low: score 82 or above with no high-severity mismatch/signal.
 
 ## What It Does
 
