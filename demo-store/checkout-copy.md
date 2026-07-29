@@ -1,5 +1,5 @@
-# Checkout Copy
+# Checkout Copy Refresh
 
-- Checkout button: Place order
-- Success message: Your order is confirmed.
-- Help text: You can request a refund within 30 days.
+- Checkout button: Finish checkout
+- Success message: Your order is ready.
+- Help text: Refunds are simple if plans change.
