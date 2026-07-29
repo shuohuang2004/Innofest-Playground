@@ -242,6 +242,8 @@ Inline diff comments are opt-in:
 
 That still updates the summary comment, then posts up to three PR review comments directly on high-signal changed lines in the `Files changed` tab. The inline commenter deletes previous PR Lie Detector inline comments before posting new ones, so rerunning the command does not create a wall of duplicate comments.
 
+If `PR_LIE_DETECTOR_INLINE_ALERT_URL` is set, inline comments include that image whenever Truth Score is below 100.
+
 ## Plain-English Demo PR
 
 For audiences who are not backend engineers, use the `demo-store/` files instead of Rails files:

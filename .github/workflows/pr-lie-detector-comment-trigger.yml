@@ -101,6 +101,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.issue.number }}
+          PR_LIE_DETECTOR_INLINE_ALERT_URL: ${{ vars.PR_LIE_DETECTOR_INLINE_ALERT_URL }}
         run: |
           node ./bin/pr-lie-detector-inline-comments.js \
             --github-repo "${{ github.repository }}" \

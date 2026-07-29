@@ -136,6 +136,7 @@ function inlineBody({ signal, line, ruleReport }) {
 
     return [
       INLINE_MARKER,
+      inlineAlertImage(ruleReport),
       `**PR Lie Detector:** This line changes customer-facing policy: \`${escapeInlineCode(compactLine)}\`.`,
       claimHint,
       'Call out the refund, discount, approval, or rollout impact in the PR description.',
@@ -155,6 +156,7 @@ function inlineBody({ signal, line, ruleReport }) {
 
     return [
       INLINE_MARKER,
+      inlineAlertImage(ruleReport),
       '**PR Lie Detector:** This line is part of a database/schema change.',
       claimHint,
       'Mention rollout and rollback risk before requesting review.',
@@ -165,6 +167,7 @@ function inlineBody({ signal, line, ruleReport }) {
 
   return [
     INLINE_MARKER,
+    inlineAlertImage(ruleReport),
     `**PR Lie Detector:** This changed line contributes to **${signal.title}**.`,
     claimHint,
     signal.detail,
@@ -181,6 +184,26 @@ function mainClaimHint(ruleReport) {
   }
 
   return `PR claim to verify: ${mismatch.claim}`;
+}
+
+function inlineAlertImage(ruleReport) {
+  if ((ruleReport?.truthScore ?? 100) >= 100) {
+    return '';
+  }
+
+  const url = normalizeMediaUrl(process.env.PR_LIE_DETECTOR_INLINE_ALERT_URL);
+
+  return url ? `![PR Lie Detector warning](${url})` : '';
+}
+
+function normalizeMediaUrl(value) {
+  const url = String(value || '').trim();
+
+  if (!/^https?:\/\/\S+$/i.test(url)) {
+    return '';
+  }
+
+  return url;
 }
 
 function signalPriority(signal) {
