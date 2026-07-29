@@ -8,12 +8,11 @@ The important direction: this is meant to become a PR comment workflow. The CLI 
 
 The GitHub comment is intentionally short:
 
-1. Score, risk, and AI status.
+1. Large Truth Score headline, review risk, and AI status.
 2. A GitHub alert with the one-line verdict.
 3. Triggered truth-deduction table with every fixed deduction for this PR.
-4. Three reviewer actions.
-5. Three top evidence items.
-6. Full claim analysis, scoring rubric, suggested PR text, and git stats inside a collapsible details block.
+4. Three top evidence items.
+5. Full claim analysis, scoring rubric, suggested PR text, and git stats inside a collapsible details block.
 
 Demo line:
 
@@ -237,12 +236,19 @@ The final version should update the existing marker comment instead of posting a
 
 ## Optional GIF Or Image
 
-GitHub comments can render images and GIFs through Markdown. Set a repository variable when you want a visual banner in the demo comment:
+GitHub comments can render images and GIFs through Markdown. There are two repository variables:
+
+- `PR_LIE_DETECTOR_BANNER_URL`: shown when Truth Score is below 100.
+- `PR_LIE_DETECTOR_SUCCESS_BANNER_URL`: shown when Truth Score is exactly 100.
 
 ```sh
 gh variable set PR_LIE_DETECTOR_BANNER_URL \
   --repo shuohuang2004/Innofest-Playground \
   --body "https://example.com/pr-lie-detector.gif"
+
+gh variable set PR_LIE_DETECTOR_SUCCESS_BANNER_URL \
+  --repo shuohuang2004/Innofest-Playground \
+  --body "https://example.com/truth-score-100.jpg"
 ```
 
 Use a hosted `https://` URL, such as a GitHub-uploaded image URL, raw image in a public repo, or a tiny GIF hosted somewhere stable. If the variable is empty, the comment stays text-only.

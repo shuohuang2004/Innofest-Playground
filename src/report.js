@@ -34,13 +34,14 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
     lines.push('<!-- pr-lie-detector:report -->');
   }
 
-  appendBanner(lines);
+  appendBanner(lines, ruleReport);
 
   lines.push('## PR Lie Detector');
   lines.push('');
-  lines.push(
-    `**Truth Score:** ${formatScore(ruleReport)} | **Review Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel} | **AI:** ${formatAiStatus(aiReport)}`,
-  );
+  lines.push(`# Truth Score: ${ruleReport.truthScore}/100`);
+  lines.push('');
+  lines.push(`**Calculation:** ${formatScoreCalculation(ruleReport)}`);
+  lines.push(`**Review Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel} | **AI:** ${formatAiStatus(aiReport)}`);
   lines.push('');
   appendRiskAlert(lines, { ruleReport, aiReport });
   lines.push('');
@@ -53,11 +54,6 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
   lines.push('### Score Breakdown');
   lines.push('');
   appendScoreBreakdown(lines, ruleReport);
-  lines.push('');
-
-  lines.push('### Reviewer Action');
-  lines.push('');
-  appendReviewerActions(lines, { title, ruleReport, aiReport });
   lines.push('');
 
   lines.push('### Top Evidence');
@@ -136,14 +132,14 @@ function appendRiskAlert(lines, { ruleReport, aiReport }) {
   lines.push(`> ${compactSentence(verdict, 240)}`);
 }
 
-function formatScore(ruleReport) {
+function formatScoreCalculation(ruleReport) {
   const breakdown = ruleReport.scoreBreakdown;
 
   if (!breakdown) {
-    return `${ruleReport.truthScore}/100`;
+    return 'No scoring breakdown available.';
   }
 
-  return `${breakdown.score}/100 (${breakdown.baseScore} - ${breakdown.totalDeducted} fixed deductions)`;
+  return `${breakdown.baseScore} - ${breakdown.totalDeducted} fixed truth deductions`;
 }
 
 function formatAiStatus(aiReport) {
@@ -253,8 +249,8 @@ function compactSentence(value, limit) {
   return `${text.slice(0, Math.max(0, limit - 3)).trim()}...`;
 }
 
-function appendBanner(lines) {
-  const bannerUrl = normalizeMediaUrl(process.env.PR_LIE_DETECTOR_BANNER_URL);
+function appendBanner(lines, ruleReport) {
+  const bannerUrl = selectBannerUrl(ruleReport);
 
   if (!bannerUrl) {
     return;
@@ -262,6 +258,14 @@ function appendBanner(lines) {
 
   lines.push(`![PR Lie Detector](${bannerUrl})`);
   lines.push('');
+}
+
+function selectBannerUrl(ruleReport) {
+  if (ruleReport.truthScore === 100) {
+    return normalizeMediaUrl(process.env.PR_LIE_DETECTOR_SUCCESS_BANNER_URL);
+  }
+
+  return normalizeMediaUrl(process.env.PR_LIE_DETECTOR_BANNER_URL);
 }
 
 function normalizeMediaUrl(value) {

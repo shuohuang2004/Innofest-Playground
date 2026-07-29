@@ -131,16 +131,20 @@ test('renders a GitHub-comment-style report without AI', () => {
 
   assert.match(report.markdown, /<!-- pr-lie-detector:report -->/);
   assert.match(report.markdown, /## PR Lie Detector/);
+  assert.match(report.markdown, /# Truth Score:/);
   assert.match(report.markdown, /AI does not affect the score/);
   assert.match(report.markdown, /\| Points \| Truth deduction triggered \|/);
   assert.match(report.markdown, /All deductions are fixed 5-point units/);
   assert.match(report.markdown, /Scoring Rubric/);
   assert.match(report.markdown, /Make It Honest/);
+  assert.doesNotMatch(report.markdown, /Reviewer Action/);
 });
 
-test('renders optional banner image when a media URL is configured', () => {
+test('renders success banner image when a perfect truth score media URL is configured', () => {
   const previousBannerUrl = process.env.PR_LIE_DETECTOR_BANNER_URL;
+  const previousSuccessBannerUrl = process.env.PR_LIE_DETECTOR_SUCCESS_BANNER_URL;
   process.env.PR_LIE_DETECTOR_BANNER_URL = 'https://example.com/pr-lie-detector.gif';
+  process.env.PR_LIE_DETECTOR_SUCCESS_BANNER_URL = 'https://example.com/truth-score-100.jpg';
 
   const gitFacts = {
     repo: '/repo',
@@ -170,11 +174,18 @@ test('renders optional banner image when a media URL is configured', () => {
     githubComment: true,
   });
 
-  assert.match(report.markdown, /!\[PR Lie Detector\]\(https:\/\/example.com\/pr-lie-detector.gif\)/);
+  assert.match(report.markdown, /!\[PR Lie Detector\]\(https:\/\/example.com\/truth-score-100.jpg\)/);
+  assert.doesNotMatch(report.markdown, /pr-lie-detector.gif/);
 
   if (previousBannerUrl === undefined) {
     delete process.env.PR_LIE_DETECTOR_BANNER_URL;
   } else {
     process.env.PR_LIE_DETECTOR_BANNER_URL = previousBannerUrl;
+  }
+
+  if (previousSuccessBannerUrl === undefined) {
+    delete process.env.PR_LIE_DETECTOR_SUCCESS_BANNER_URL;
+  } else {
+    process.env.PR_LIE_DETECTOR_SUCCESS_BANNER_URL = previousSuccessBannerUrl;
   }
 });
