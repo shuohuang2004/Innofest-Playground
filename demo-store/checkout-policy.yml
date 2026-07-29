@@ -1,0 +1,11 @@
+refunds:
+  max_refund_days: 30
+  auto_approve_under_usd: 25
+
+discounts:
+  max_discount_percent: 20
+  stackable_coupons: false
+
+review:
+  require_manager_approval_over_usd: 100
+  require_fraud_review: true

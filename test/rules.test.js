@@ -100,6 +100,68 @@ test('gives full truth score when a risky PR fully discloses the risk', () => {
   assert.ok(report.signals.every((signal) => signal.disclosed));
 });
 
+test('flags docs-only claim when business policy config changes', () => {
+  const gitFacts = {
+    changedFiles: [{ status: 'M', path: 'demo-store/checkout-policy.yml' }],
+    diff: [
+      'diff --git a/demo-store/checkout-policy.yml b/demo-store/checkout-policy.yml',
+      '-  max_refund_days: 30',
+      '+  max_refund_days: 365',
+      '-  max_discount_percent: 20',
+      '+  max_discount_percent: 95',
+    ].join('\n'),
+  };
+
+  const report = scanRules({
+    title: 'Docs only: update checkout wording',
+    body: 'No behavior change.',
+    gitFacts,
+  });
+
+  assert.ok(report.signals.some((signal) => signal.id === 'business_rules_changed'));
+  assert.ok(report.mismatches.some((mismatch) => mismatch.id === 'docs_claim_but_code_changed'));
+  assert.ok(report.mismatches.some((mismatch) => mismatch.id === 'refactor_claim_but_behavior_signals'));
+  assert.equal(report.riskLevel, 'high');
+  assert.equal(report.truthScore, 25);
+  assert.deepEqual(
+    report.scoreBreakdown.deductions.map((deduction) => [deduction.id, deduction.points]),
+    [
+      ['refactor_claim_but_behavior_signals', 25],
+      ['docs_claim_but_code_changed', 25],
+      ['small_claim_but_high_risk', 10],
+      ['business_rules_changed', 15],
+    ],
+  );
+});
+
+test('gives full truth score when business policy risk is disclosed', () => {
+  const gitFacts = {
+    changedFiles: [{ status: 'M', path: 'demo-store/checkout-policy.yml' }],
+    diff: [
+      'diff --git a/demo-store/checkout-policy.yml b/demo-store/checkout-policy.yml',
+      '-  max_refund_days: 30',
+      '+  max_refund_days: 365',
+      '-  max_discount_percent: 20',
+      '+  max_discount_percent: 95',
+    ].join('\n'),
+  };
+
+  const report = scanRules({
+    title: 'Change checkout refund and discount policy',
+    body: [
+      'Updates checkout business rules for refunds, discounts, and coupon approval.',
+      'Customer impact: refund windows and discount limits become more permissive.',
+      'Rollout should confirm pricing, billing, and support expectations.',
+    ].join('\n'),
+    gitFacts,
+  });
+
+  assert.ok(report.signals.some((signal) => signal.id === 'business_rules_changed' && signal.disclosed));
+  assert.equal(report.riskLevel, 'high');
+  assert.equal(report.truthScore, 100);
+  assert.deepEqual(report.scoreBreakdown.deductions, []);
+});
+
 test('renders a GitHub-comment-style report without AI', () => {
   const gitFacts = {
     repo: '/repo',

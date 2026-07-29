@@ -234,6 +234,18 @@ jobs:
 
 The final version should update the existing marker comment instead of posting a new one each run.
 
+## Plain-English Demo PR
+
+For audiences who are not backend engineers, use the `demo-store/` files instead of Rails files:
+
+- Bad PR title: `Docs only: update checkout wording`
+- Bad PR body: `Small copy update. No behavior change.`
+- Diff that everyone can understand:
+  - `demo-store/checkout-copy.md` changes checkout text.
+  - `demo-store/checkout-policy.yml` changes refund windows, auto-approval limits, discount caps, and coupon stacking.
+
+That creates a clear story: the PR claims "copy/docs only", but the diff changes customer-facing business policy. After the detector gives a low Truth Score, edit the PR description to disclose the refund, discount, approval, and rollout impact, then rerun `/lie-detect`.
+
 ## Optional GIF Or Image
 
 GitHub comments can render images and GIFs through Markdown. There are two repository variables:

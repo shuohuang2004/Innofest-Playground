@@ -11,6 +11,10 @@ const CATEGORY_RULES = [
   ['migrations', /^(db\/migrate\/|migrations\/)/],
   ['routes', /^config\/routes\.rb$/],
   ['tests', /(^test\/|^spec\/|_test\.rb$|_spec\.rb$|\.test\.[jt]sx?$|\.spec\.[jt]sx?$)/],
+  [
+    'businessRules',
+    /^(demo-store\/.*(billing|checkout|coupon|discount|payment|policy|pricing|refund|risk|rules).*\.(json|ya?ml|toml)$|policies\/|rules\/|config\/(billing|checkout|discount|feature|features|payment|pricing|refund|risk|rules)[^/]*\.(json|ya?ml|toml)$)/i,
+  ],
   ['docs', /(^docs\/|README|redocly\.ya?ml$|openapi|swagger)/i],
   ['dependencies', /^(Gemfile|Gemfile\.lock|package\.json|yarn\.lock|package-lock\.json)$/],
   ['ci', /^(\.circleci\/|\.github\/workflows\/|\.github\/actions\/)/],
@@ -88,6 +92,10 @@ const SCORE_RUBRIC = {
     deleted_assertions: {
       points: 10,
       label: 'Removed test assertions were not disclosed',
+    },
+    business_rules_changed: {
+      points: 15,
+      label: 'Business policy/config change was not disclosed',
     },
     api_surface_without_docs: {
       points: 5,
@@ -179,6 +187,16 @@ export function scanRules({ title, body, gitFacts }) {
       title: 'Dependencies changed',
       detail: 'Dependency changes should include compatibility and security notes.',
       evidence: categories.dependencies,
+    });
+  }
+
+  if (categories.businessRules.length > 0) {
+    signals.push({
+      id: 'business_rules_changed',
+      severity: 'high',
+      title: 'Business policy/config changed',
+      detail: 'Reviewer should confirm customer impact, approval limits, pricing, refunds, or rollout notes.',
+      evidence: categories.businessRules.slice(0, 8),
     });
   }
 
@@ -312,13 +330,17 @@ function detectRuleBasedMismatches({ claims, categories, behaviorSignals, signal
       categories.services.length +
       categories.models.length +
       categories.migrations.length +
+      categories.businessRules.length +
       categories.routes.length >
     0;
+  const behaviorSurfaceChanged =
+    behaviorSignals.length > 0 ||
+    categories.controllers.length > 0 ||
+    categories.routes.length > 0 ||
+    categories.migrations.length > 0 ||
+    categories.businessRules.length > 0;
 
-  if (
-    (claimIds.has('refactor_only') || claimIds.has('no_behavior_change')) &&
-    (behaviorSignals.length > 0 || categories.controllers.length > 0 || categories.routes.length > 0 || categories.migrations.length > 0)
-  ) {
+  if ((claimIds.has('refactor_only') || claimIds.has('no_behavior_change')) && behaviorSurfaceChanged) {
     mismatches.push({
       id: 'refactor_claim_but_behavior_signals',
       severity: 'high',
@@ -329,6 +351,7 @@ function detectRuleBasedMismatches({ claims, categories, behaviorSignals, signal
         ...categories.routes.slice(0, 2),
         ...categories.controllers.slice(0, 2),
         ...categories.migrations.slice(0, 2),
+        ...categories.businessRules.slice(0, 2),
       ],
     });
   }
@@ -345,6 +368,7 @@ function detectRuleBasedMismatches({ claims, categories, behaviorSignals, signal
         ...categories.models,
         ...categories.migrations,
         ...categories.routes,
+        ...categories.businessRules,
       ].slice(0, 8),
     });
   }
@@ -361,6 +385,7 @@ function detectRuleBasedMismatches({ claims, categories, behaviorSignals, signal
         ...categories.models,
         ...categories.migrations,
         ...categories.routes,
+        ...categories.businessRules,
       ].slice(0, 8),
     });
   }
@@ -392,6 +417,9 @@ function isSignalDisclosed(signalId, text) {
     migration_changed: [/\b(migration|database|db|schema|rollback|rollout|review_state)\b/i],
     dependencies_changed: [/\b(dependency|dependencies|gemfile|package\.json|lockfile|compatibility|security)\b/i],
     deleted_assertions: [/\b(assertion|assertions|test coverage|coverage|removed tests?|deleted tests?)\b/i],
+    business_rules_changed: [
+      /\b(business rule|business rules|policy|policies|refund|discount|coupon|pricing|billing|payment|approval|customer impact|rollout)\b/i,
+    ],
     api_surface_without_docs: [/\b(api|controller|route|endpoint|request spec|request specs|api docs?|documentation|docs?)\b/i],
     service_without_tests: [/\b(service tests?|service specs?|unit tests?|tests? not included|tests? missing|should be added before)\b/i],
     controller_without_tests: [/\b(controller tests?|controller specs?|request specs?|integration tests?|tests? not included|tests? missing|should be added before)\b/i],
