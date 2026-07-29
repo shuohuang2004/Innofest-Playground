@@ -25,12 +25,12 @@ const CLAIM_PATTERNS = [
   {
     id: 'docs_only',
     label: 'Claims docs-only work',
-    pattern: /\b(docs?|documentation|readme)\b/i,
+    pattern: /\b(only|just|purely)\s+(docs?|documentation|readme)\b|\b(docs?|documentation|readme)[-\s]+only\b/i,
   },
   {
     id: 'test_only',
     label: 'Claims test-only work',
-    pattern: /\b(test|spec|coverage)\b/i,
+    pattern: /\b(only|just|purely)\s+(tests?|specs?|coverage)\b|\b(tests?|specs?|coverage)[-\s]+only\b/i,
   },
   {
     id: 'no_behavior_change',
