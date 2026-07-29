@@ -61,15 +61,15 @@ const SCORE_RUBRIC = {
   claimMismatchRules: {
     refactor_claim_but_behavior_signals: {
       points: 25,
-      label: 'Refactor/no-behavior claim contradicted by behavior, API, or database changes',
+      label: 'Refactor/no-behavior claim contradicted by behavior, API, database, or business policy changes',
     },
     docs_claim_but_code_changed: {
       points: 25,
-      label: 'Docs-only claim contradicted by application or database changes',
+      label: 'Docs-only claim contradicted by application, database, or business policy changes',
     },
     test_claim_but_code_changed: {
       points: 15,
-      label: 'Test-only claim contradicted by application or database changes',
+      label: 'Test-only claim contradicted by application, database, or business policy changes',
     },
     small_claim_but_high_risk: {
       points: 10,
@@ -345,7 +345,7 @@ function detectRuleBasedMismatches({ claims, categories, behaviorSignals, signal
       id: 'refactor_claim_but_behavior_signals',
       severity: 'high',
       claim: 'PR is framed as refactor/cleanup/no behavior change.',
-      reality: 'Diff contains behavior-change signals or touches request/route/database surface.',
+      reality: 'Diff contains behavior-change signals or touches request, route, database, or business policy surface.',
       evidence: [
         ...behaviorSignals.slice(0, 4),
         ...categories.routes.slice(0, 2),
@@ -361,7 +361,7 @@ function detectRuleBasedMismatches({ claims, categories, behaviorSignals, signal
       id: 'docs_claim_but_code_changed',
       severity: 'high',
       claim: 'PR appears to be framed around docs.',
-      reality: 'Application code or database files changed too.',
+      reality: 'Application, database, or business policy files changed too.',
       evidence: [
         ...categories.controllers,
         ...categories.services,
@@ -378,7 +378,7 @@ function detectRuleBasedMismatches({ claims, categories, behaviorSignals, signal
       id: 'test_claim_but_code_changed',
       severity: 'medium',
       claim: 'PR appears to be framed around tests.',
-      reality: 'Application code or database files changed too.',
+      reality: 'Application, database, or business policy files changed too.',
       evidence: [
         ...categories.controllers,
         ...categories.services,
