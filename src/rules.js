@@ -53,15 +53,62 @@ const ASSERTION_LINE_PATTERN =
 const SCORE_RUBRIC = {
   baseScore: 100,
   minimumScore: 0,
-  mismatchPenalties: {
-    high: 22,
-    medium: 11,
-    low: 5,
+  unit: 5,
+  claimMismatchRules: {
+    refactor_claim_but_behavior_signals: {
+      points: 25,
+      label: 'Refactor/no-behavior claim contradicted by behavior, API, or database changes',
+    },
+    docs_claim_but_code_changed: {
+      points: 25,
+      label: 'Docs-only claim contradicted by application or database changes',
+    },
+    test_claim_but_code_changed: {
+      points: 15,
+      label: 'Test-only claim contradicted by application or database changes',
+    },
+    small_claim_but_high_risk: {
+      points: 10,
+      label: 'Small/minor framing while high-risk signals are present',
+    },
   },
-  signalPenalties: {
-    high: 11,
-    medium: 5,
-    low: 2,
+  riskSignalRules: {
+    frozen_legacy_touched: {
+      points: 20,
+      label: 'Frozen legacy path touched',
+    },
+    migration_changed: {
+      points: 10,
+      label: 'Database migration changed',
+    },
+    dependencies_changed: {
+      points: 10,
+      label: 'Dependency manifest or lockfile changed',
+    },
+    deleted_assertions: {
+      points: 10,
+      label: 'Test assertions removed',
+    },
+    api_surface_without_docs: {
+      points: 5,
+      label: 'API/controller surface changed without docs or request specs',
+    },
+    service_without_tests: {
+      points: 5,
+      label: 'Service code changed without tests',
+    },
+    controller_without_tests: {
+      points: 5,
+      label: 'Controller code changed without tests',
+    },
+    behavior_signals: {
+      points: 5,
+      label: 'Behavior-changing lines detected',
+    },
+    ci_changed: {
+      points: 5,
+      label: 'CI/CD configuration changed',
+    },
   },
 };
 
@@ -335,15 +382,17 @@ function scoreTruth({ mismatches, signals }) {
       source: 'claim_mismatch',
       id: mismatch.id,
       label: mismatch.claim,
+      rubricLabel: lookupRubricRule('claim_mismatch', mismatch.id)?.label || mismatch.claim,
       severity: mismatch.severity,
-      points: SCORE_RUBRIC.mismatchPenalties[mismatch.severity] || 0,
+      points: lookupRubricRule('claim_mismatch', mismatch.id)?.points || 0,
     })),
     ...signals.map((signal) => ({
       source: 'risk_signal',
       id: signal.id,
       label: signal.title,
+      rubricLabel: lookupRubricRule('risk_signal', signal.id)?.label || signal.title,
       severity: signal.severity,
-      points: SCORE_RUBRIC.signalPenalties[signal.severity] || 0,
+      points: lookupRubricRule('risk_signal', signal.id)?.points || 0,
     })),
   ].filter((deduction) => deduction.points > 0);
 
@@ -357,8 +406,9 @@ function scoreTruth({ mismatches, signals }) {
     totalDeducted,
     deductions,
     rubric: {
-      claimMismatch: { ...SCORE_RUBRIC.mismatchPenalties },
-      riskSignal: { ...SCORE_RUBRIC.signalPenalties },
+      unit: SCORE_RUBRIC.unit,
+      claimMismatchRules: cloneRubricRules(SCORE_RUBRIC.claimMismatchRules),
+      riskSignalRules: cloneRubricRules(SCORE_RUBRIC.riskSignalRules),
       riskThresholds: [
         'High: score < 60, or any high-severity mismatch/signal',
         'Medium: score < 82',
@@ -366,6 +416,30 @@ function scoreTruth({ mismatches, signals }) {
       ],
     },
   };
+}
+
+function lookupRubricRule(source, id) {
+  if (source === 'claim_mismatch') {
+    return SCORE_RUBRIC.claimMismatchRules[id];
+  }
+
+  if (source === 'risk_signal') {
+    return SCORE_RUBRIC.riskSignalRules[id];
+  }
+
+  return null;
+}
+
+function cloneRubricRules(rules) {
+  return Object.fromEntries(
+    Object.entries(rules).map(([id, rule]) => [
+      id,
+      {
+        points: rule.points,
+        label: rule.label,
+      },
+    ]),
+  );
 }
 
 function scoreToRisk(score, signals, mismatches) {

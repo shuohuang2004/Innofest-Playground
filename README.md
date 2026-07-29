@@ -25,20 +25,30 @@ PR Lie Detector catches when "refactor / no behavior change" does not match the 
 
 Truth Score is deterministic. AI never changes the score; AI only rewrites the explanation, reviewer questions, and suggested PR text.
 
-The score starts at 100 and subtracts fixed deductions:
+The score starts at 100 and subtracts fixed 5-point-unit deductions.
 
-| Rule Type | High | Medium | Low |
-| --- | ---: | ---: | ---: |
-| Claim mismatch | -22 | -11 | -5 |
-| Risk signal | -11 | -5 | -2 |
+Claim mismatch deductions:
 
-Examples:
+| Points | Rule |
+| ---: | --- |
+| -25 | Refactor/no-behavior claim contradicted by behavior, API, or database changes |
+| -25 | Docs-only claim contradicted by application or database changes |
+| -15 | Test-only claim contradicted by application or database changes |
+| -10 | Small/minor framing while high-risk signals are present |
 
-- Claim says "refactor/no behavior change" but diff changes routes, controller, migration, or behavior lines: high claim mismatch, `-22`.
-- Database migration changed: high risk signal, `-11`.
-- API/controller changed without docs: medium risk signal, `-5`.
-- Service/controller changed without tests: medium risk signal, `-5` each.
-- CI/CD config changed: low risk signal, `-2`.
+Risk signal deductions:
+
+| Points | Rule |
+| ---: | --- |
+| -20 | Frozen legacy path touched |
+| -10 | Database migration changed |
+| -10 | Dependency manifest or lockfile changed |
+| -10 | Test assertions removed |
+| -5 | API/controller surface changed without docs or request specs |
+| -5 | Service code changed without tests |
+| -5 | Controller code changed without tests |
+| -5 | Behavior-changing lines detected |
+| -5 | CI/CD configuration changed |
 
 Risk level is also deterministic:
 

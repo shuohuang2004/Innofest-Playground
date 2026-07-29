@@ -27,19 +27,20 @@ test('flags refactor claim when behavior and controller files changed', () => {
 
   assert.equal(report.mismatches[0].id, 'refactor_claim_but_behavior_signals');
   assert.equal(report.riskLevel, 'high');
-  assert.equal(report.truthScore, 58);
+  assert.equal(report.truthScore, 55);
   assert.equal(report.scoreBreakdown.baseScore, 100);
-  assert.equal(report.scoreBreakdown.totalDeducted, 42);
+  assert.equal(report.scoreBreakdown.totalDeducted, 45);
   assert.deepEqual(
     report.scoreBreakdown.deductions.map((deduction) => [deduction.id, deduction.points]),
     [
-      ['refactor_claim_but_behavior_signals', 22],
+      ['refactor_claim_but_behavior_signals', 25],
       ['api_surface_without_docs', 5],
       ['service_without_tests', 5],
       ['controller_without_tests', 5],
       ['behavior_signals', 5],
     ],
   );
+  assert.ok(report.scoreBreakdown.deductions.every((deduction) => deduction.points % 5 === 0));
 });
 
 test('flags frozen legacy paths', () => {
@@ -90,6 +91,7 @@ test('renders a GitHub-comment-style report without AI', () => {
   assert.match(report.markdown, /<!-- pr-lie-detector:report -->/);
   assert.match(report.markdown, /## PR Lie Detector/);
   assert.match(report.markdown, /AI does not affect the score/);
+  assert.match(report.markdown, /All deductions are fixed 5-point units/);
   assert.match(report.markdown, /Scoring Rubric/);
   assert.match(report.markdown, /Make It Honest/);
 });

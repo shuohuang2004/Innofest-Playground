@@ -184,15 +184,17 @@ function appendScoringRubric(lines, ruleReport) {
     return;
   }
 
-  lines.push('| Rule Type | High | Medium | Low |');
-  lines.push('| --- | ---: | ---: | ---: |');
-  lines.push(
-    `| Claim mismatch | -${breakdown.rubric.claimMismatch.high} | -${breakdown.rubric.claimMismatch.medium} | -${breakdown.rubric.claimMismatch.low} |`,
-  );
-  lines.push(
-    `| Risk signal | -${breakdown.rubric.riskSignal.high} | -${breakdown.rubric.riskSignal.medium} | -${breakdown.rubric.riskSignal.low} |`,
-  );
+  lines.push(`All deductions are fixed ${breakdown.rubric.unit}-point units. AI does not affect the score.`);
   lines.push('');
+  lines.push('**Claim mismatch rules**');
+  lines.push('');
+  appendRubricRuleTable(lines, breakdown.rubric.claimMismatchRules);
+  lines.push('');
+  lines.push('**Risk signal rules**');
+  lines.push('');
+  appendRubricRuleTable(lines, breakdown.rubric.riskSignalRules);
+  lines.push('');
+
   lines.push('**Triggered deductions**');
   lines.push('');
   lines.push('| Points | Type | Severity | Rule |');
@@ -210,6 +212,15 @@ function appendScoringRubric(lines, ruleReport) {
 
   for (const threshold of breakdown.rubric.riskThresholds) {
     lines.push(`- ${threshold}`);
+  }
+}
+
+function appendRubricRuleTable(lines, rules) {
+  lines.push('| Points | Rule |');
+  lines.push('| ---: | --- |');
+
+  for (const rule of Object.values(rules)) {
+    lines.push(`| -${rule.points} | ${escapeTable(rule.label)} |`);
   }
 }
 
