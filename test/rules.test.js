@@ -79,3 +79,44 @@ test('renders a GitHub-comment-style report without AI', () => {
   assert.match(report.markdown, /## PR Lie Detector/);
   assert.match(report.markdown, /Make It Honest/);
 });
+
+test('renders optional banner image when a media URL is configured', () => {
+  const previousBannerUrl = process.env.PR_LIE_DETECTOR_BANNER_URL;
+  process.env.PR_LIE_DETECTOR_BANNER_URL = 'https://example.com/pr-lie-detector.gif';
+
+  const gitFacts = {
+    repo: '/repo',
+    range: 'origin/dev...HEAD',
+    requestedRange: 'origin/dev...HEAD',
+    warnings: [],
+    changedFiles: [],
+    stats: '',
+    commits: '',
+    diffTruncated: false,
+  };
+  const ruleReport = scanRules({
+    title: 'Update docs',
+    body: '',
+    gitFacts: {
+      ...gitFacts,
+      diff: '',
+    },
+  });
+
+  const report = buildReport({
+    title: 'Update docs',
+    body: '',
+    gitFacts,
+    ruleReport,
+    aiReport: { enabled: false },
+    githubComment: true,
+  });
+
+  assert.match(report.markdown, /!\[PR Lie Detector\]\(https:\/\/example.com\/pr-lie-detector.gif\)/);
+
+  if (previousBannerUrl === undefined) {
+    delete process.env.PR_LIE_DETECTOR_BANNER_URL;
+  } else {
+    process.env.PR_LIE_DETECTOR_BANNER_URL = previousBannerUrl;
+  }
+});

@@ -34,12 +34,13 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
     lines.push('<!-- pr-lie-detector:report -->');
   }
 
+  appendBanner(lines);
+
   lines.push('## PR Lie Detector');
   lines.push('');
-  lines.push(`**Truth Score:** ${ruleReport.truthScore}/100`);
-  lines.push(`**Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel}`);
-  lines.push(`**Verdict:** ${aiReport?.enabled && aiReport.summary ? aiReport.summary : ruleReport.ruleVerdict}`);
-  lines.push(`**AI:** ${formatAiStatus(aiReport)}`);
+  lines.push(
+    `**Score:** ${ruleReport.truthScore}/100 | **Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel} | **AI:** ${formatAiStatus(aiReport)}`,
+  );
   lines.push('');
   appendRiskAlert(lines, { ruleReport, aiReport });
   lines.push('');
@@ -48,6 +49,20 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
     lines.push('> Warning: ' + gitFacts.warnings.join(' '));
     lines.push('');
   }
+
+  lines.push('### Reviewer Action');
+  lines.push('');
+  appendReviewerActions(lines, { title, ruleReport, aiReport });
+  lines.push('');
+
+  lines.push('### Top Evidence');
+  lines.push('');
+  appendTopEvidence(lines, ruleReport);
+  lines.push('');
+
+  lines.push('<details>');
+  lines.push('<summary>Full analysis, suggested PR text, and git stats</summary>');
+  lines.push('');
 
   lines.push('### Claim vs Reality');
   lines.push('');
@@ -69,8 +84,7 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
   appendHonestDescription(lines, { title, ruleReport, aiReport });
   lines.push('');
 
-  lines.push('<details>');
-  lines.push('<summary>Changed files and git stats</summary>');
+  lines.push('### Changed Files');
   lines.push('');
   lines.push('```text');
   lines.push(`Range: ${gitFacts.range}`);
@@ -92,18 +106,19 @@ function appendRiskAlert(lines, { ruleReport, aiReport }) {
 
   if (ruleReport.riskLevel === 'high') {
     lines.push('> [!CAUTION]');
-    lines.push(`> Truth Score is ${ruleReport.truthScore}/100. Treat this PR description as incomplete before requesting review.`);
+    lines.push(`> ${compactSentence(verdict, 240)}`);
+    lines.push('> Treat this PR description as incomplete before requesting review.');
     return;
   }
 
   if (ruleReport.riskLevel === 'medium') {
     lines.push('> [!WARNING]');
-    lines.push(`> ${verdict}`);
+    lines.push(`> ${compactSentence(verdict, 240)}`);
     return;
   }
 
   lines.push('> [!NOTE]');
-  lines.push(`> ${verdict}`);
+  lines.push(`> ${compactSentence(verdict, 240)}`);
 }
 
 function formatAiStatus(aiReport) {
@@ -122,6 +137,109 @@ function formatAiStatus(aiReport) {
 
 function compactReason(reason) {
   return reason.replace(/\s+/g, ' ').slice(0, 220);
+}
+
+function compactSentence(value, limit) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+
+  if (text.length <= limit) {
+    return text;
+  }
+
+  return `${text.slice(0, Math.max(0, limit - 3)).trim()}...`;
+}
+
+function appendBanner(lines) {
+  const bannerUrl = normalizeMediaUrl(process.env.PR_LIE_DETECTOR_BANNER_URL);
+
+  if (!bannerUrl) {
+    return;
+  }
+
+  lines.push(`![PR Lie Detector](${bannerUrl})`);
+  lines.push('');
+}
+
+function normalizeMediaUrl(value) {
+  const url = String(value || '').trim();
+
+  if (!/^https?:\/\/\S+$/i.test(url)) {
+    return '';
+  }
+
+  return url;
+}
+
+function appendReviewerActions(lines, { title, ruleReport, aiReport }) {
+  const actions = buildReviewerActions({ title, ruleReport, aiReport });
+
+  if (actions.length === 0) {
+    lines.push('- No immediate reviewer action needed.');
+    return;
+  }
+
+  for (const action of actions.slice(0, 3)) {
+    lines.push(`- ${action}`);
+  }
+}
+
+function buildReviewerActions({ title, ruleReport, aiReport }) {
+  const actions = [];
+  const signalIds = new Set(ruleReport.signals.map((signal) => signal.id));
+  const honestTitle = aiReport?.enabled && aiReport.honestTitle ? aiReport.honestTitle : suggestTitle(title, ruleReport);
+
+  if (honestTitle && honestTitle !== title) {
+    actions.push(`Ask author to rename the PR to: \`${inlineCode(honestTitle)}\`.`);
+  }
+
+  if (ruleReport.truthScore < 70) {
+    actions.push('Pause review assignment until scope, tests, and rollout notes are clear.');
+  }
+
+  if (signalIds.has('migration_changed')) {
+    actions.push('Ask for migration rollout and rollback notes.');
+  }
+
+  if (signalIds.has('api_surface_without_docs')) {
+    actions.push('Ask for API docs or request specs for the changed endpoint.');
+  }
+
+  if (signalIds.has('service_without_tests') || signalIds.has('controller_without_tests')) {
+    actions.push('Ask for focused tests for the changed service/controller behavior.');
+  }
+
+  if (actions.length < 3 && aiReport?.enabled) {
+    for (const question of aiReport.reviewerQuestions) {
+      actions.push(`Ask: ${compactSentence(question, 130)}`);
+
+      if (actions.length >= 3) {
+        break;
+      }
+    }
+  }
+
+  return Array.from(new Set(actions));
+}
+
+function appendTopEvidence(lines, ruleReport) {
+  const signals = ruleReport.signals.slice(0, 3);
+
+  if (signals.length === 0) {
+    lines.push('- No high-signal evidence found.');
+    return;
+  }
+
+  for (const signal of signals) {
+    lines.push(`- **${signal.title}:** ${compactSentence(formatSignalEvidence(signal), 160)}`);
+  }
+}
+
+function formatSignalEvidence(signal) {
+  if (signal.evidence.length === 0) {
+    return signal.detail;
+  }
+
+  return signal.evidence.slice(0, 3).join('; ');
 }
 
 function appendClaimReality(lines, { title, ruleReport, aiReport }) {
@@ -260,6 +378,10 @@ function suggestTitle(title, ruleReport) {
 
 function lowerFirst(value) {
   return value.charAt(0).toLowerCase() + value.slice(1);
+}
+
+function inlineCode(value) {
+  return String(value).replace(/`/g, "'");
 }
 
 function summarizeChanges(ruleReport) {

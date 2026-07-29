@@ -4,6 +4,22 @@ PR Lie Detector is a hackathon MVP for code review productivity. It compares wha
 
 The important direction: this is meant to become a PR comment workflow. The CLI exists first so the scanner and report are easy to demo and test.
 
+## Demo Comment Shape
+
+The GitHub comment is intentionally short:
+
+1. Score, risk, and AI status.
+2. A GitHub alert with the one-line verdict.
+3. Three reviewer actions.
+4. Three top evidence items.
+5. Full claim analysis, suggested PR text, and git stats inside a collapsible details block.
+
+Demo line:
+
+```text
+PR Lie Detector catches when "refactor / no behavior change" does not match the diff, then gives reviewers the next three things to ask before review.
+```
+
 ## What It Does
 
 - Scans a PR diff for hard facts: changed controllers, services, routes, migrations, tests, docs, dependencies, CI files, and frozen legacy paths.
@@ -175,6 +191,18 @@ jobs:
 ```
 
 The final version should update the existing marker comment instead of posting a new one each run.
+
+## Optional GIF Or Image
+
+GitHub comments can render images and GIFs through Markdown. Set a repository variable when you want a visual banner in the demo comment:
+
+```sh
+gh variable set PR_LIE_DETECTOR_BANNER_URL \
+  --repo shuohuang2004/Innofest-Playground \
+  --body "https://example.com/pr-lie-detector.gif"
+```
+
+Use a hosted `https://` URL, such as a GitHub-uploaded image URL, raw image in a public repo, or a tiny GIF hosted somewhere stable. If the variable is empty, the comment stays text-only.
 
 ## Review Gate
 

@@ -52,6 +52,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PR_LIE_DETECTOR_AI_PROVIDER: openrouter
           PR_LIE_DETECTOR_MODEL: google/gemini-2.5-flash
+          PR_LIE_DETECTOR_BANNER_URL: ${{ vars.PR_LIE_DETECTOR_BANNER_URL }}
         run: |
           node detector/bin/pr-lie-detector.js \
             --repo repo \
