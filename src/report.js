@@ -39,6 +39,7 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
   lines.push(`**Truth Score:** ${ruleReport.truthScore}/100`);
   lines.push(`**Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel}`);
   lines.push(`**Verdict:** ${aiReport?.enabled && aiReport.summary ? aiReport.summary : ruleReport.ruleVerdict}`);
+  lines.push(`**AI:** ${formatAiStatus(aiReport)}`);
   lines.push('');
   appendRiskAlert(lines, { ruleReport, aiReport });
   lines.push('');
@@ -103,6 +104,24 @@ function appendRiskAlert(lines, { ruleReport, aiReport }) {
 
   lines.push('> [!NOTE]');
   lines.push(`> ${verdict}`);
+}
+
+function formatAiStatus(aiReport) {
+  if (aiReport?.enabled) {
+    const provider = aiReport.provider || 'AI';
+    const model = aiReport.model ? `/${aiReport.model}` : '';
+    return `enabled (${provider}${model})`;
+  }
+
+  if (aiReport?.reason) {
+    return `rule-based fallback (${compactReason(aiReport.reason)})`;
+  }
+
+  return 'rule-based fallback';
+}
+
+function compactReason(reason) {
+  return reason.replace(/\s+/g, ' ').slice(0, 220);
 }
 
 function appendClaimReality(lines, { title, ruleReport, aiReport }) {

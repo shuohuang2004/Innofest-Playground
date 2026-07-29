@@ -36,6 +36,28 @@ jobs:
         with:
           node-version: 24
 
+      - name: Show running status in PR comment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          TRIGGER_USER: ${{ github.event.comment.user.login }}
+        run: |
+          cat > report.md <<EOF
+          <!-- pr-lie-detector:report -->
+          ## PR Lie Detector
+
+          > [!NOTE]
+          > Analysis is running. The Truth Report will replace this message in a few seconds.
+
+          **Triggered by:** @$TRIGGER_USER
+          **Workflow run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+
+          node detector/bin/pr-lie-detector-comment.js \
+            --github-repo "${{ github.repository }}" \
+            --pr "$PR_NUMBER" \
+            --body-file report.md
+
       - name: Checkout PR branch and collect PR metadata
         working-directory: repo
         env:
