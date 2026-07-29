@@ -72,42 +72,42 @@ const SCORE_RUBRIC = {
       label: 'Small/minor framing while high-risk signals are present',
     },
   },
-  riskSignalRules: {
+  missingDisclosureRules: {
     frozen_legacy_touched: {
       points: 20,
-      label: 'Frozen legacy path touched',
+      label: 'Frozen legacy touch was not disclosed',
     },
     migration_changed: {
       points: 10,
-      label: 'Database migration changed',
+      label: 'Database migration was not disclosed',
     },
     dependencies_changed: {
       points: 10,
-      label: 'Dependency manifest or lockfile changed',
+      label: 'Dependency manifest or lockfile change was not disclosed',
     },
     deleted_assertions: {
       points: 10,
-      label: 'Test assertions removed',
+      label: 'Removed test assertions were not disclosed',
     },
     api_surface_without_docs: {
       points: 5,
-      label: 'API/controller surface changed without docs or request specs',
+      label: 'Missing API docs/request specs were not disclosed',
     },
     service_without_tests: {
       points: 5,
-      label: 'Service code changed without tests',
+      label: 'Missing service tests were not disclosed',
     },
     controller_without_tests: {
       points: 5,
-      label: 'Controller code changed without tests',
+      label: 'Missing controller tests were not disclosed',
     },
     behavior_signals: {
       points: 5,
-      label: 'Behavior-changing lines detected',
+      label: 'Behavior changes were not disclosed',
     },
     ci_changed: {
       points: 5,
-      label: 'CI/CD configuration changed',
+      label: 'CI/CD configuration change was not disclosed',
     },
   },
 };
@@ -116,7 +116,8 @@ export function scanRules({ title, body, gitFacts }) {
   const changedFiles = gitFacts.changedFiles;
   const paths = changedFiles.map((file) => file.path);
   const categories = categorizePaths(paths);
-  const claims = detectClaims(`${title}\n\n${body}`);
+  const prText = `${title}\n\n${body}`;
+  const claims = detectClaims(prText);
   const behaviorSignals = detectBehaviorSignals(gitFacts.diff);
   const deletedAssertions = detectDeletedAssertions(gitFacts.diff);
   const signals = [];
@@ -211,22 +212,23 @@ export function scanRules({ title, body, gitFacts }) {
     });
   }
 
+  const disclosedSignals = attachSignalDisclosures(signals, prText);
   const mismatches = detectRuleBasedMismatches({ claims, categories, behaviorSignals, signals });
-  const scoreBreakdown = scoreTruth({ mismatches, signals });
+  const scoreBreakdown = scoreTruth({ mismatches, signals: disclosedSignals });
   const truthScore = scoreBreakdown.score;
-  const riskLevel = scoreToRisk(truthScore, signals, mismatches);
+  const riskLevel = scoreToRisk(truthScore, disclosedSignals, mismatches);
 
   return {
     categories,
     claims,
     behaviorSignals,
     deletedAssertions,
-    signals,
+    signals: disclosedSignals,
     mismatches,
     scoreBreakdown,
     truthScore,
     riskLevel,
-    ruleVerdict: verdictFor({ truthScore, mismatches, signals }),
+    ruleVerdict: verdictFor({ truthScore, mismatches, signals: disclosedSignals, scoreBreakdown }),
   };
 }
 
@@ -376,6 +378,30 @@ function detectRuleBasedMismatches({ claims, categories, behaviorSignals, signal
   return mismatches;
 }
 
+function attachSignalDisclosures(signals, text) {
+  return signals.map((signal) => ({
+    ...signal,
+    disclosed: isSignalDisclosed(signal.id, text),
+  }));
+}
+
+function isSignalDisclosed(signalId, text) {
+  const normalized = text.toLowerCase();
+  const patterns = {
+    frozen_legacy_touched: [/\b(cb::series|frozen|legacy|read[-\s]?only)\b/i],
+    migration_changed: [/\b(migration|database|db|schema|rollback|rollout|review_state)\b/i],
+    dependencies_changed: [/\b(dependency|dependencies|gemfile|package\.json|lockfile|compatibility|security)\b/i],
+    deleted_assertions: [/\b(assertion|assertions|test coverage|coverage|removed tests?|deleted tests?)\b/i],
+    api_surface_without_docs: [/\b(api|controller|route|endpoint|request spec|request specs|api docs?|documentation|docs?)\b/i],
+    service_without_tests: [/\b(service tests?|service specs?|unit tests?|tests? not included|tests? missing|should be added before)\b/i],
+    controller_without_tests: [/\b(controller tests?|controller specs?|request specs?|integration tests?|tests? not included|tests? missing|should be added before)\b/i],
+    behavior_signals: [/\b(behavior|behaviour|response shape|error handling|validation|hidden[-\s]?template|cannot be updated|reject)\b/i],
+    ci_changed: [/\b(ci|cd|pipeline|workflow|github actions?|secrets?|required checks?)\b/i],
+  };
+
+  return (patterns[signalId] || []).some((pattern) => pattern.test(normalized));
+}
+
 function scoreTruth({ mismatches, signals }) {
   const deductions = [
     ...mismatches.map((mismatch) => ({
@@ -386,14 +412,16 @@ function scoreTruth({ mismatches, signals }) {
       severity: mismatch.severity,
       points: lookupRubricRule('claim_mismatch', mismatch.id)?.points || 0,
     })),
-    ...signals.map((signal) => ({
-      source: 'risk_signal',
-      id: signal.id,
-      label: signal.title,
-      rubricLabel: lookupRubricRule('risk_signal', signal.id)?.label || signal.title,
-      severity: signal.severity,
-      points: lookupRubricRule('risk_signal', signal.id)?.points || 0,
-    })),
+    ...signals
+      .filter((signal) => !signal.disclosed)
+      .map((signal) => ({
+        source: 'missing_disclosure',
+        id: signal.id,
+        label: signal.title,
+        rubricLabel: lookupRubricRule('missing_disclosure', signal.id)?.label || signal.title,
+        severity: signal.severity,
+        points: lookupRubricRule('missing_disclosure', signal.id)?.points || 0,
+      })),
   ].filter((deduction) => deduction.points > 0);
 
   const totalDeducted = deductions.reduce((sum, deduction) => sum + deduction.points, 0);
@@ -408,11 +436,11 @@ function scoreTruth({ mismatches, signals }) {
     rubric: {
       unit: SCORE_RUBRIC.unit,
       claimMismatchRules: cloneRubricRules(SCORE_RUBRIC.claimMismatchRules),
-      riskSignalRules: cloneRubricRules(SCORE_RUBRIC.riskSignalRules),
+      missingDisclosureRules: cloneRubricRules(SCORE_RUBRIC.missingDisclosureRules),
       riskThresholds: [
-        'High: score < 60, or any high-severity mismatch/signal',
+        'High: any high-severity diff risk signal, or score < 60',
         'Medium: score < 82',
-        'Low: score >= 82 with no high-severity mismatch/signal',
+        'Low: score >= 82 with no high-severity diff risk signal',
       ],
     },
   };
@@ -423,8 +451,8 @@ function lookupRubricRule(source, id) {
     return SCORE_RUBRIC.claimMismatchRules[id];
   }
 
-  if (source === 'risk_signal') {
-    return SCORE_RUBRIC.riskSignalRules[id];
+  if (source === 'missing_disclosure') {
+    return SCORE_RUBRIC.missingDisclosureRules[id];
   }
 
   return null;
@@ -458,13 +486,17 @@ function scoreToRisk(score, signals, mismatches) {
   return 'low';
 }
 
-function verdictFor({ truthScore, mismatches, signals }) {
+function verdictFor({ truthScore, mismatches, signals, scoreBreakdown }) {
   if (mismatches.length > 0) {
     return 'Description may be incomplete. Reviewer should compare the PR claim with the evidence below.';
   }
 
+  if (scoreBreakdown?.deductions.length > 0) {
+    return 'No direct claim mismatch found, but the PR description is missing some risk disclosures.';
+  }
+
   if (signals.some((signal) => signal.severity === 'high')) {
-    return 'No direct claim mismatch found, but high-risk change signals need explicit PR notes.';
+    return 'Description matches detected diff facts. Review risk remains high because high-risk files changed.';
   }
 
   if (truthScore < 90) {

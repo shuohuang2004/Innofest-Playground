@@ -39,7 +39,7 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
   lines.push('## PR Lie Detector');
   lines.push('');
   lines.push(
-    `**Score:** ${formatScore(ruleReport)} | **Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel} | **AI:** ${formatAiStatus(aiReport)}`,
+    `**Truth Score:** ${formatScore(ruleReport)} | **Review Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel} | **AI:** ${formatAiStatus(aiReport)}`,
   );
   lines.push('');
   appendRiskAlert(lines, { ruleReport, aiReport });
@@ -113,11 +113,16 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
 
 function appendRiskAlert(lines, { ruleReport, aiReport }) {
   const verdict = aiReport?.enabled && aiReport.summary ? aiReport.summary : ruleReport.ruleVerdict;
+  const hasTruthDeductions = (ruleReport.scoreBreakdown?.deductions.length || 0) > 0;
 
   if (ruleReport.riskLevel === 'high') {
     lines.push('> [!CAUTION]');
     lines.push(`> ${compactSentence(verdict, 240)}`);
-    lines.push('> Treat this PR description as incomplete before requesting review.');
+    lines.push(
+      hasTruthDeductions
+        ? '> Treat this PR description as incomplete before requesting review.'
+        : '> Truthful description, high review risk. Review carefully before merge.',
+    );
     return;
   }
 
@@ -159,14 +164,14 @@ function appendScoreBreakdown(lines, ruleReport) {
   const breakdown = ruleReport.scoreBreakdown;
 
   if (!breakdown || breakdown.deductions.length === 0) {
-    lines.push('- Starts at 100. No fixed deductions were triggered.');
+    lines.push('- Starts at 100. No truth deductions were triggered.');
     lines.push('- AI does not affect the score.');
     return;
   }
 
   lines.push(`- Starts at ${breakdown.baseScore}. AI does not affect the score.`);
   lines.push('');
-  lines.push('| Points | Fixed rule triggered |');
+  lines.push('| Points | Truth deduction triggered |');
   lines.push('| ---: | --- |');
 
   for (const deduction of breakdown.deductions) {
@@ -188,9 +193,9 @@ function appendScoringRubric(lines, ruleReport) {
   lines.push('');
   appendRubricRuleTable(lines, breakdown.rubric.claimMismatchRules);
   lines.push('');
-  lines.push('**Risk signal rules**');
+  lines.push('**Missing disclosure rules**');
   lines.push('');
-  appendRubricRuleTable(lines, breakdown.rubric.riskSignalRules);
+  appendRubricRuleTable(lines, breakdown.rubric.missingDisclosureRules);
   lines.push('');
 
   lines.push('**Triggered deductions**');
@@ -227,8 +232,8 @@ function formatDeductionSource(source) {
     return 'Claim mismatch';
   }
 
-  if (source === 'risk_signal') {
-    return 'Risk signal';
+  if (source === 'missing_disclosure') {
+    return 'Missing disclosure';
   }
 
   return source;

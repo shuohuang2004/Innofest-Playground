@@ -10,7 +10,7 @@ The GitHub comment is intentionally short:
 
 1. Score, risk, and AI status.
 2. A GitHub alert with the one-line verdict.
-3. Triggered scoring table with every fixed deduction for this PR.
+3. Triggered truth-deduction table with every fixed deduction for this PR.
 4. Three reviewer actions.
 5. Three top evidence items.
 6. Full claim analysis, scoring rubric, suggested PR text, and git stats inside a collapsible details block.
@@ -25,6 +25,13 @@ PR Lie Detector catches when "refactor / no behavior change" does not match the 
 
 Truth Score is deterministic. AI never changes the score; AI only rewrites the explanation, reviewer questions, and suggested PR text.
 
+Truth Score measures whether the PR description matches the diff. It is intentionally separate from review risk: a PR can be `100/100` truthful and still be `High` review risk if it honestly describes a migration, API change, or other risky surface.
+
+Demo contrast:
+
+- `45/100 Truth / High Risk`: PR says "refactor / nothing changed" while the diff adds API, service, and database changes.
+- `100/100 Truth / High Risk`: PR clearly says it adds API, service, migration, missing tests, and rollout risk. It is truthful, but still risky to review.
+
 The score starts at 100 and subtracts fixed 5-point-unit deductions.
 
 Claim mismatch deductions:
@@ -36,25 +43,25 @@ Claim mismatch deductions:
 | -15 | Test-only claim contradicted by application or database changes |
 | -10 | Small/minor framing while high-risk signals are present |
 
-Risk signal deductions:
+Missing disclosure deductions:
 
 | Points | Rule |
 | ---: | --- |
-| -20 | Frozen legacy path touched |
-| -10 | Database migration changed |
-| -10 | Dependency manifest or lockfile changed |
-| -10 | Test assertions removed |
-| -5 | API/controller surface changed without docs or request specs |
-| -5 | Service code changed without tests |
-| -5 | Controller code changed without tests |
-| -5 | Behavior-changing lines detected |
-| -5 | CI/CD configuration changed |
+| -20 | Frozen legacy touch was not disclosed |
+| -10 | Database migration was not disclosed |
+| -10 | Dependency manifest or lockfile change was not disclosed |
+| -10 | Removed test assertions were not disclosed |
+| -5 | Missing API docs/request specs were not disclosed |
+| -5 | Missing service tests were not disclosed |
+| -5 | Missing controller tests were not disclosed |
+| -5 | Behavior changes were not disclosed |
+| -5 | CI/CD configuration change was not disclosed |
 
 Risk level is also deterministic:
 
-- High: score below 60, or any high-severity mismatch/signal.
+- High: score below 60, or any high-severity diff risk signal.
 - Medium: score below 82.
-- Low: score 82 or above with no high-severity mismatch/signal.
+- Low: score 82 or above with no high-severity diff risk signal.
 
 ## What It Does
 

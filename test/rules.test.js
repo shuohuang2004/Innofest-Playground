@@ -59,6 +59,47 @@ test('flags frozen legacy paths', () => {
   assert.equal(report.riskLevel, 'high');
 });
 
+test('gives full truth score when a risky PR fully discloses the risk', () => {
+  const gitFacts = {
+    changedFiles: [
+      { status: 'A', path: 'app/services/template_service/update_template.rb' },
+      { status: 'A', path: 'app/controllers/cms_api/templates_controller.rb' },
+      { status: 'A', path: 'config/routes.rb' },
+      { status: 'A', path: 'db/migrate/20260729000000_add_template_review_state.rb' },
+    ],
+    diff: [
+      'diff --git a/app/services/template_service/update_template.rb b/app/services/template_service/update_template.rb',
+      '+    if template.hidden?',
+      '+      return Failure.new(:hidden_template)',
+      'diff --git a/app/controllers/cms_api/templates_controller.rb b/app/controllers/cms_api/templates_controller.rb',
+      '+    render json: result.error, status: :unprocessable_entity',
+    ].join('\n'),
+  };
+
+  const report = scanRules({
+    title: 'Add template update API and review state',
+    body: [
+      '## What changed',
+      '- Adds `CmsApi::TemplatesController#update` and routes for template updates.',
+      '- Adds `TemplateService::UpdateTemplate` to handle update behavior, including hidden-template rejection.',
+      '- Adds `review_state` to `templates` with default `draft`.',
+      '',
+      '## Risk / reviewer focus',
+      '- Database migration changes production schema; verify rollout and rollback.',
+      '- API/controller surface changes response shape and error handling.',
+      '- Service/controller tests are not included and should be added before production merge.',
+      '- Request specs are not included and should be added before production merge.',
+    ].join('\n'),
+    gitFacts,
+  });
+
+  assert.equal(report.truthScore, 100);
+  assert.equal(report.riskLevel, 'high');
+  assert.equal(report.scoreBreakdown.totalDeducted, 0);
+  assert.deepEqual(report.scoreBreakdown.deductions, []);
+  assert.ok(report.signals.every((signal) => signal.disclosed));
+});
+
 test('renders a GitHub-comment-style report without AI', () => {
   const gitFacts = {
     repo: '/repo',
@@ -91,7 +132,7 @@ test('renders a GitHub-comment-style report without AI', () => {
   assert.match(report.markdown, /<!-- pr-lie-detector:report -->/);
   assert.match(report.markdown, /## PR Lie Detector/);
   assert.match(report.markdown, /AI does not affect the score/);
-  assert.match(report.markdown, /\| Points \| Fixed rule triggered \|/);
+  assert.match(report.markdown, /\| Points \| Truth deduction triggered \|/);
   assert.match(report.markdown, /All deductions are fixed 5-point units/);
   assert.match(report.markdown, /Scoring Rubric/);
   assert.match(report.markdown, /Make It Honest/);
