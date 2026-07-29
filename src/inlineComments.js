@@ -123,8 +123,17 @@ function inlineBody({ signal, line, ruleReport }) {
   const claimHint = mainClaimHint(ruleReport);
   const lineText = line.text.trim();
   const compactLine = lineText.length > 90 ? `${lineText.slice(0, 87)}...` : lineText;
+  const hasTruthDeductions = (ruleReport?.scoreBreakdown?.deductions.length || 0) > 0;
 
   if (signal.id === 'business_rules_changed') {
+    if (!hasTruthDeductions) {
+      return [
+        INLINE_MARKER,
+        `**PR Lie Detector:** Review focus: this line changes customer-facing policy: \`${escapeInlineCode(compactLine)}\`.`,
+        'The PR description disclosed the policy change; verify customer impact, abuse risk, and rollout before approving.',
+      ].join('\n\n');
+    }
+
     return [
       INLINE_MARKER,
       `**PR Lie Detector:** This line changes customer-facing policy: \`${escapeInlineCode(compactLine)}\`.`,
@@ -136,6 +145,14 @@ function inlineBody({ signal, line, ruleReport }) {
   }
 
   if (signal.id === 'migration_changed') {
+    if (!hasTruthDeductions) {
+      return [
+        INLINE_MARKER,
+        '**PR Lie Detector:** Review focus: this line is part of a disclosed database/schema change.',
+        'Verify rollout and rollback risk before approving.',
+      ].join('\n\n');
+    }
+
     return [
       INLINE_MARKER,
       '**PR Lie Detector:** This line is part of a database/schema change.',

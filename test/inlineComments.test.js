@@ -57,6 +57,9 @@ test('builds focused inline comments for business policy signals', () => {
           claim: 'PR appears to be framed around docs.',
         },
       ],
+      scoreBreakdown: {
+        deductions: [{ id: 'docs_claim_but_code_changed' }],
+      },
     },
   });
 
@@ -66,4 +69,31 @@ test('builds focused inline comments for business policy signals', () => {
   assert.ok(comments[0].line > 0);
   assert.match(comments[0].body, new RegExp(INLINE_MARKER));
   assert.match(comments[0].body, /customer-facing policy/);
+  assert.match(comments[0].body, /PR appears to be framed around docs/);
+});
+
+test('uses review-focus wording when the PR description is already truthful', () => {
+  const comments = buildInlineComments({
+    diff: checkoutPolicyDiff,
+    limit: 1,
+    ruleReport: {
+      signals: [
+        {
+          id: 'business_rules_changed',
+          severity: 'high',
+          title: 'Business policy/config changed',
+          detail: 'Reviewer should confirm customer impact.',
+          evidence: ['demo-store/checkout-policy.yml'],
+        },
+      ],
+      mismatches: [],
+      scoreBreakdown: {
+        deductions: [],
+      },
+    },
+  });
+
+  assert.equal(comments.length, 1);
+  assert.match(comments[0].body, /Review focus/);
+  assert.doesNotMatch(comments[0].body, /Call out/);
 });
