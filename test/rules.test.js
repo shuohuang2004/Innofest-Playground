@@ -130,8 +130,8 @@ test('renders a GitHub-comment-style report without AI', () => {
   });
 
   assert.match(report.markdown, /<!-- pr-lie-detector:report -->/);
-  assert.match(report.markdown, /## PR Lie Detector/);
-  assert.match(report.markdown, /# Truth Score:/);
+  assert.match(report.markdown, /## PR Lie Detector - Truth Score: \d+\/100/);
+  assert.doesNotMatch(report.markdown, /# Truth Score:/);
   assert.match(report.markdown, /AI does not affect the score/);
   assert.match(report.markdown, /\| Points \| Truth deduction triggered \|/);
   assert.match(report.markdown, /All deductions are fixed 5-point units/);

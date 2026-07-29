@@ -36,9 +36,7 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
 
   appendBanner(lines, ruleReport);
 
-  lines.push('## PR Lie Detector');
-  lines.push('');
-  lines.push(`# Truth Score: ${ruleReport.truthScore}/100`);
+  lines.push(`## PR Lie Detector - Truth Score: ${ruleReport.truthScore}/100`);
   lines.push('');
   lines.push(`**Calculation:** ${formatScoreCalculation(ruleReport)}`);
   lines.push(`**Review Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel} | **AI:** ${formatAiStatus(aiReport)}`);
