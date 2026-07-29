@@ -227,7 +227,7 @@ async function runGeminiOpenAiCompatibility({ apiKey, model, prompt }) {
 }
 
 function isInvalidGeminiApiKey(reason = '') {
-  return /API_KEY_INVALID|API key not valid|invalid api key/i.test(reason);
+  return /API_KEY_INVALID|API key not valid|invalid api key|pass a valid API key/i.test(reason);
 }
 
 function resolveProvider() {

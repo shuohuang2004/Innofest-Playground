@@ -171,11 +171,16 @@ test('Gemini provider reports a concise reason when both endpoints reject the ke
   process.env.PR_LIE_DETECTOR_AI_PROVIDER = 'gemini';
   process.env.GEMINI_API_KEY = 'fake-key';
 
-  globalThis.fetch = async () => ({
-    ok: false,
-    status: 400,
-    text: async () => 'API_KEY_INVALID: API key not valid',
-  });
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+
+    return {
+      ok: false,
+      status: 400,
+      text: async () => (calls === 1 ? 'API_KEY_INVALID: API key not valid' : 'Please pass a valid API key'),
+    };
+  };
 
   const report = await runAiClaimChecker({
     title: 'Refactor template update service',
