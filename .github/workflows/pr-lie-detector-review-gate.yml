@@ -50,7 +50,7 @@ jobs:
 
       - name: Remove requested reviewer when Truth Score is too low
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.PR_LIE_DETECTOR_GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_LIE_DETECTOR_REVIEW_THRESHOLD: 70
         run: |
@@ -64,7 +64,7 @@ jobs:
 
       - name: Create or update PR comment
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.PR_LIE_DETECTOR_GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           node ./bin/pr-lie-detector-comment.js \
