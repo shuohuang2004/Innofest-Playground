@@ -1,0 +1,67 @@
+name: PR Lie Detector
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  truth-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: repo
+
+      # Replace this with the real detector repository after it is pushed.
+      - name: Checkout PR Lie Detector
+        uses: actions/checkout@v4
+        with:
+          repository: your-org/pr-lie-detector-mvp
+          path: detector
+          fetch-depth: 1
+          # token: ${{ secrets.DETECTOR_REPO_TOKEN }} # Needed if the detector repo is private.
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Collect PR metadata
+        working-directory: repo
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr view "$PR_NUMBER" --json title --jq '.title' > ../pr-title.txt
+          gh pr view "$PR_NUMBER" --json body --jq '.body // ""' > ../pr-body.md
+          gh pr view "$PR_NUMBER" --json baseRefName --jq '.baseRefName' > ../base-ref.txt
+          git fetch origin "$(cat ../base-ref.txt)" --depth=1
+
+      - name: Generate truth report
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PR_LIE_DETECTOR_MODEL: gpt-4.1-mini
+        run: |
+          node detector/bin/pr-lie-detector.js \
+            --repo repo \
+            --range "origin/$(cat base-ref.txt)...HEAD" \
+            --title "$(cat pr-title.txt)" \
+            --body-file pr-body.md \
+            --output report.md
+
+      - name: Create or update PR comment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node detector/bin/pr-lie-detector-comment.js \
+            --github-repo "${{ github.repository }}" \
+            --pr "${{ github.event.pull_request.number }}" \
+            --body-file report.md

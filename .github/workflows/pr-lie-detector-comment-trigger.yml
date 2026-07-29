@@ -1,0 +1,60 @@
+name: PR Lie Detector Comment Trigger
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  lie-detect:
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/lie-detect') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Checkout PR branch and collect metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh pr checkout "$PR_NUMBER"
+          gh pr view "$PR_NUMBER" --json title --jq '.title' > pr-title.txt
+          gh pr view "$PR_NUMBER" --json body --jq '.body // ""' > pr-body.md
+          gh pr view "$PR_NUMBER" --json baseRefName --jq '.baseRefName' > base-ref.txt
+          git fetch origin "$(cat base-ref.txt)" --depth=1
+
+      - name: Generate truth report
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PR_LIE_DETECTOR_MODEL: gpt-4.1-mini
+        run: |
+          node ./bin/pr-lie-detector.js \
+            --repo . \
+            --range "origin/$(cat base-ref.txt)...HEAD" \
+            --title "$(cat pr-title.txt)" \
+            --body-file pr-body.md \
+            --output report.md \
+            --json report.json
+
+      - name: Create or update PR comment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          node ./bin/pr-lie-detector-comment.js \
+            --github-repo "${{ github.repository }}" \
+            --pr "$PR_NUMBER" \
+            --body-file report.md
