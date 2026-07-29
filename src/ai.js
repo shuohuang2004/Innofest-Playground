@@ -103,6 +103,13 @@ async function runGeminiClaimChecker({ apiKey, model, prompt }) {
     return compatibilityResult;
   }
 
+  if (isInvalidGeminiApiKey(compatibilityResult.reason)) {
+    return {
+      ...compatibilityResult,
+      reason: 'Gemini API key was rejected by both Interactions and OpenAI-compatible endpoints. Check the GEMINI_API_KEY secret value and Google API key restrictions.',
+    };
+  }
+
   return {
     ...compatibilityResult,
     reason: `${interactionsResult.reason} | OpenAI-compatible fallback: ${compatibilityResult.reason}`,

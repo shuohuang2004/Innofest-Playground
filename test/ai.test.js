@@ -163,6 +163,53 @@ test('Gemini provider tries OpenAI-compatible endpoint after invalid Interaction
   restoreEnv('GEMINI_API_KEY', previousGeminiKey);
 });
 
+test('Gemini provider reports a concise reason when both endpoints reject the key', async () => {
+  const previousProvider = process.env.PR_LIE_DETECTOR_AI_PROVIDER;
+  const previousGeminiKey = process.env.GEMINI_API_KEY;
+  const originalFetch = globalThis.fetch;
+
+  process.env.PR_LIE_DETECTOR_AI_PROVIDER = 'gemini';
+  process.env.GEMINI_API_KEY = 'fake-key';
+
+  globalThis.fetch = async () => ({
+    ok: false,
+    status: 400,
+    text: async () => 'API_KEY_INVALID: API key not valid',
+  });
+
+  const report = await runAiClaimChecker({
+    title: 'Refactor template update service',
+    body: '',
+    gitFacts: {
+      range: 'sample',
+      changedFiles: [],
+      stats: '',
+      commits: '',
+      diffExcerpt: '',
+      diffTruncated: false,
+    },
+    ruleReport: {
+      claims: [],
+      mismatches: [],
+      signals: [],
+      truthScore: 100,
+      riskLevel: 'low',
+    },
+    model: 'gemini-3.6-flash',
+  });
+
+  assert.equal(report.enabled, false);
+  assert.equal(report.provider, 'gemini/openai-compatible');
+  assert.equal(
+    report.reason,
+    'Gemini API key was rejected by both Interactions and OpenAI-compatible endpoints. Check the GEMINI_API_KEY secret value and Google API key restrictions.',
+  );
+
+  globalThis.fetch = originalFetch;
+  restoreEnv('PR_LIE_DETECTOR_AI_PROVIDER', previousProvider);
+  restoreEnv('GEMINI_API_KEY', previousGeminiKey);
+});
+
 function restoreEnv(key, value) {
   if (value === undefined) {
     delete process.env[key];
