@@ -83,6 +83,11 @@ function renderGateSection({ gate, removal }) {
   lines.push(`**Current score:** ${gate.score}/100`);
 
   if (gate.blocked) {
+    lines.push('');
+    lines.push('> [!CAUTION]');
+    lines.push('> Truth Score is below the review threshold. The requested review should wait until the PR description is clearer.');
+    lines.push('');
+
     const removedTargets = [
       ...(removal?.reviewers || []).map((reviewer) => `@${reviewer}`),
       ...(removal?.teamReviewers || []).map((team) => `team:${team}`),

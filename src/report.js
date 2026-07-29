@@ -40,6 +40,8 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
   lines.push(`**Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel}`);
   lines.push(`**Verdict:** ${aiReport?.enabled && aiReport.summary ? aiReport.summary : ruleReport.ruleVerdict}`);
   lines.push('');
+  appendRiskAlert(lines, { ruleReport, aiReport });
+  lines.push('');
 
   if (gitFacts.warnings.length > 0) {
     lines.push('> Warning: ' + gitFacts.warnings.join(' '));
@@ -82,6 +84,25 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
   lines.push('</details>');
 
   return lines.join('\n');
+}
+
+function appendRiskAlert(lines, { ruleReport, aiReport }) {
+  const verdict = aiReport?.enabled && aiReport.summary ? aiReport.summary : ruleReport.ruleVerdict;
+
+  if (ruleReport.riskLevel === 'high') {
+    lines.push('> [!CAUTION]');
+    lines.push(`> Truth Score is ${ruleReport.truthScore}/100. Treat this PR description as incomplete before requesting review.`);
+    return;
+  }
+
+  if (ruleReport.riskLevel === 'medium') {
+    lines.push('> [!WARNING]');
+    lines.push(`> ${verdict}`);
+    return;
+  }
+
+  lines.push('> [!NOTE]');
+  lines.push(`> ${verdict}`);
 }
 
 function appendClaimReality(lines, { title, ruleReport, aiReport }) {
