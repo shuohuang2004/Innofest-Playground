@@ -122,16 +122,48 @@ test('flags docs-only claim when business policy config changes', () => {
   assert.ok(report.mismatches.some((mismatch) => mismatch.id === 'docs_claim_but_code_changed'));
   assert.ok(report.mismatches.some((mismatch) => mismatch.id === 'refactor_claim_but_behavior_signals'));
   assert.equal(report.riskLevel, 'high');
-  assert.equal(report.truthScore, 25);
+  assert.equal(report.truthScore, 35);
   assert.deepEqual(
     report.scoreBreakdown.deductions.map((deduction) => [deduction.id, deduction.points]),
     [
       ['refactor_claim_but_behavior_signals', 25],
       ['docs_claim_but_code_changed', 25],
-      ['small_claim_but_high_risk', 10],
       ['business_rules_changed', 15],
     ],
   );
+});
+
+test('does not double-penalize docs wording when code scope is disclosed', () => {
+  const gitFacts = {
+    changedFiles: [
+      { status: 'A', path: 'demo-admin/admin-dashboard-copy.md' },
+      { status: 'A', path: 'demo-admin/access-control.js' },
+      { status: 'A', path: 'db/migrate/20260729000100_drop_audit_logs.sql' },
+    ],
+    diff: [
+      'diff --git a/demo-admin/access-control.js b/demo-admin/access-control.js',
+      '+export function canAccessAdminPanel(user) {',
+      '+  return true;',
+      '+}',
+      'diff --git a/db/migrate/20260729000100_drop_audit_logs.sql b/db/migrate/20260729000100_drop_audit_logs.sql',
+      '+DROP TABLE audit_logs;',
+    ].join('\n'),
+  };
+
+  const report = scanRules({
+    title: 'Only docs change and introduce a new function',
+    body: '',
+    gitFacts,
+  });
+
+  assert.equal(report.truthScore, 90);
+  assert.equal(report.riskLevel, 'high');
+  assert.deepEqual(
+    report.scoreBreakdown.deductions.map((deduction) => [deduction.id, deduction.points]),
+    [['migration_changed', 10]],
+  );
+  assert.ok(report.signals.some((signal) => signal.id === 'behavior_signals' && signal.disclosed));
+  assert.ok(report.signals.some((signal) => signal.id === 'migration_changed' && !signal.disclosed));
 });
 
 test('gives full truth score when business policy risk is disclosed', () => {

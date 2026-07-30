@@ -44,9 +44,12 @@ const CLAIM_PATTERNS = [
   {
     id: 'small_change',
     label: 'Frames the PR as small/simple',
-    pattern: /\b(small|minor|simple|tiny|quick|just|only)\b/i,
+    pattern: /\b(small|minor|simple|tiny|quick)\b/i,
   },
 ];
+
+const CODE_SCOPE_DISCLOSURE_PATTERN =
+  /\b(adds?|added|introduces?|introduced|creates?|created|implements?|implemented|updates?|updated|changes?|changed|modifies?|modified)\b[\s\S]{0,90}\b(function|code|logic|api|endpoint|controller|service|migration|database|db|schema|authorization|auth|permission|access)\b|\b(function|code|logic|api|endpoint|controller|service|migration|database|db|schema|authorization|auth|permission|access)\b[\s\S]{0,90}\b(adds?|added|introduces?|introduced|creates?|created|implements?|implemented|updates?|updated|changes?|changed|modifies?|modified)\b/i;
 
 const BEHAVIOR_LINE_PATTERN =
   /^\s*[+-]\s*(if|unless|elsif|else|case|when|return|render|redirect_to|raise|rescue|where|find_by|update!?|create!?|destroy!?|save!?|validates?|before_action|skip_before_action|authorize|authenticate|current_user|admin\?|policy|scope|enqueue|perform_later)\b/i;
@@ -280,6 +283,7 @@ function categorizePaths(paths) {
 function detectClaims(text) {
   return CLAIM_PATTERNS
     .filter((claim) => claim.pattern.test(text))
+    .filter((claim) => claim.id !== 'docs_only' || !CODE_SCOPE_DISCLOSURE_PATTERN.test(text))
     .map(({ id, label }) => ({
       id,
       label,
@@ -423,7 +427,9 @@ function isSignalDisclosed(signalId, text) {
     api_surface_without_docs: [/\b(api|controller|route|endpoint|request spec|request specs|api docs?|documentation|docs?)\b/i],
     service_without_tests: [/\b(service tests?|service specs?|unit tests?|tests? not included|tests? missing|should be added before)\b/i],
     controller_without_tests: [/\b(controller tests?|controller specs?|request specs?|integration tests?|tests? not included|tests? missing|should be added before)\b/i],
-    behavior_signals: [/\b(behavior|behaviour|response shape|error handling|validation|hidden[-\s]?template|cannot be updated|reject)\b/i],
+    behavior_signals: [
+      /\b(behavior|behaviour|function|code|logic|implementation|access control|authorization|auth|permission|response shape|error handling|validation|hidden[-\s]?template|cannot be updated|reject)\b/i,
+    ],
     ci_changed: [/\b(ci|cd|pipeline|workflow|github actions?|secrets?|required checks?)\b/i],
   };
 
