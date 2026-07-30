@@ -123,6 +123,13 @@ const SCORE_RUBRIC = {
   },
 };
 
+const CLAIM_MISMATCH_SEVERITY = {
+  refactor_claim_but_behavior_signals: 'high',
+  docs_claim_but_code_changed: 'high',
+  test_claim_but_code_changed: 'medium',
+  small_claim_but_high_risk: 'medium',
+};
+
 export function scanRules({ title, body, gitFacts }) {
   const changedFiles = gitFacts.changedFiles;
   const paths = changedFiles.map((file) => file.path);
@@ -235,7 +242,7 @@ export function scanRules({ title, body, gitFacts }) {
 
   const disclosedSignals = attachSignalDisclosures(signals, prText);
   const mismatches = detectRuleBasedMismatches({ claims, categories, behaviorSignals, signals });
-  const scoreBreakdown = scoreTruth({ mismatches, signals: disclosedSignals });
+  const scoreBreakdown = scoreTruth({ mismatches, signals: disclosedSignals, scoringMode: 'rule_based' });
   const truthScore = scoreBreakdown.score;
   const riskLevel = scoreToRisk(truthScore, disclosedSignals, mismatches);
 
@@ -250,6 +257,35 @@ export function scanRules({ title, body, gitFacts }) {
     truthScore,
     riskLevel,
     ruleVerdict: verdictFor({ truthScore, mismatches, signals: disclosedSignals, scoreBreakdown }),
+  };
+}
+
+export function applyAiScoring(ruleReport, aiReport) {
+  if (!aiReport?.enabled || !hasAiScoringDecisions(aiReport.scoringDecisions)) {
+    return ruleReport;
+  }
+
+  const signals = applyAiSignalDisclosures(ruleReport.signals, aiReport.scoringDecisions.signalDisclosures);
+  const mismatches = buildAiMismatches({
+    baseMismatches: ruleReport.mismatches,
+    claimDecisions: aiReport.scoringDecisions.claimMismatches,
+  });
+  const scoreBreakdown = scoreTruth({ mismatches, signals, scoringMode: 'ai_assisted' });
+  const truthScore = scoreBreakdown.score;
+  const riskLevel = scoreToRisk(truthScore, signals, mismatches);
+
+  return {
+    ...ruleReport,
+    signals,
+    mismatches,
+    scoreBreakdown,
+    truthScore,
+    riskLevel,
+    ruleVerdict: verdictFor({ truthScore, mismatches, signals, scoreBreakdown }),
+    aiScoring: {
+      applied: true,
+      confidence: aiReport.confidence || 'medium',
+    },
   };
 }
 
@@ -436,7 +472,7 @@ function isSignalDisclosed(signalId, text) {
   return (patterns[signalId] || []).some((pattern) => pattern.test(normalized));
 }
 
-function scoreTruth({ mismatches, signals }) {
+function scoreTruth({ mismatches, signals, scoringMode }) {
   const deductions = [
     ...mismatches.map((mismatch) => ({
       source: 'claim_mismatch',
@@ -464,6 +500,7 @@ function scoreTruth({ mismatches, signals }) {
   return {
     baseScore: SCORE_RUBRIC.baseScore,
     minimumScore: SCORE_RUBRIC.minimumScore,
+    scoringMode,
     score,
     totalDeducted,
     deductions,
@@ -478,6 +515,68 @@ function scoreTruth({ mismatches, signals }) {
       ],
     },
   };
+}
+
+function hasAiScoringDecisions(scoringDecisions) {
+  return (
+    (Array.isArray(scoringDecisions?.claimMismatches) && scoringDecisions.claimMismatches.length > 0) ||
+    (Array.isArray(scoringDecisions?.signalDisclosures) && scoringDecisions.signalDisclosures.length > 0)
+  );
+}
+
+function applyAiSignalDisclosures(signals, signalDisclosures = []) {
+  const decisions = new Map(
+    signalDisclosures
+      .filter((decision) => typeof decision.disclosed === 'boolean')
+      .map((decision) => [decision.id, decision]),
+  );
+
+  return signals.map((signal) => {
+    const decision = decisions.get(signal.id);
+
+    if (!decision) {
+      return signal;
+    }
+
+    return {
+      ...signal,
+      disclosed: decision.disclosed,
+      disclosureReason: decision.reason || '',
+      evidence: mergeEvidence(signal.evidence, decision.evidence),
+    };
+  });
+}
+
+function buildAiMismatches({ baseMismatches, claimDecisions = [] }) {
+  const baseById = new Map(baseMismatches.map((mismatch) => [mismatch.id, mismatch]));
+
+  return claimDecisions
+    .filter((decision) => decision.triggered === true)
+    .filter((decision) => lookupRubricRule('claim_mismatch', decision.id))
+    .map((decision) => {
+      const base = baseById.get(decision.id);
+      const rubric = lookupRubricRule('claim_mismatch', decision.id);
+
+      return {
+        id: decision.id,
+        severity: base?.severity || CLAIM_MISMATCH_SEVERITY[decision.id] || 'medium',
+        claim: decision.claim || base?.claim || rubric.label,
+        reality: decision.reality || decision.reason || base?.reality || rubric.label,
+        evidence: mergeEvidence(base?.evidence || [], decision.evidence),
+        aiReason: decision.reason || '',
+      };
+    });
+}
+
+function mergeEvidence(...groups) {
+  return Array.from(
+    new Set(
+      groups
+        .flat()
+        .map((item) => String(item || '').trim())
+        .filter(Boolean),
+    ),
+  ).slice(0, 8);
 }
 
 function lookupRubricRule(source, id) {

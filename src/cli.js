@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs';
 
 import { parseArgs, helpText } from './args.js';
 import { collectGitFacts } from './git.js';
-import { scanRules } from './rules.js';
+import { applyAiScoring, scanRules } from './rules.js';
 import { runAiClaimChecker } from './ai.js';
 import { buildReport } from './report.js';
 import { loadSample } from './samples.js';
@@ -19,7 +19,7 @@ export async function main(argv) {
   const gitFacts = sample ? sample.gitFacts : await collectGitFacts(options);
   const title = options.title || sample?.title || '';
   const body = options.body || sample?.body || '';
-  const ruleReport = scanRules({
+  const preliminaryRuleReport = scanRules({
     title,
     body,
     gitFacts,
@@ -30,13 +30,14 @@ export async function main(argv) {
         title,
         body,
         gitFacts,
-        ruleReport,
+        ruleReport: preliminaryRuleReport,
         model: options.model,
       })
     : {
         enabled: false,
         reason: 'AI disabled by --no-ai.',
       };
+  const ruleReport = applyAiScoring(preliminaryRuleReport, aiReport);
 
   const report = buildReport({
     title,

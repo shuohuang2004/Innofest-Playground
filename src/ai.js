@@ -377,6 +377,15 @@ function buildPrompt(payload) {
     'Analyze this PR and return JSON with this shape:',
     JSON.stringify(aiSchemaExample(), null, 2),
     '',
+    'Scoring instructions:',
+    '- Do not invent score numbers. The script will calculate the score from fixed rubric IDs.',
+    '- Use only rubric IDs shown in scoring_rubric.',
+    '- claim_mismatches[].triggered means the PR text makes a claim that is contradicted by the diff facts.',
+    '- signal_disclosures[].disclosed means the PR text adequately disclosed that detected diff signal.',
+    '- If the PR says something like "docs change and introduces a new function", do not treat it as docs-only.',
+    '- If a risky change is disclosed but not fully justified, mark it disclosed; reviewer questions can ask for more context.',
+    '- Ground every decision in changed files, diff lines, or PR text from the input.',
+    '',
     'PR facts:',
     JSON.stringify(payload, null, 2),
   ].join('\n');
@@ -397,6 +406,7 @@ function buildAiPayload({ title, body, gitFacts, ruleReport }) {
     rule_signals: ruleReport.signals,
     rule_truth_score: ruleReport.truthScore,
     rule_risk_level: ruleReport.riskLevel,
+    scoring_rubric: ruleReport.scoreBreakdown?.rubric,
   };
 }
 
@@ -415,6 +425,26 @@ function aiSchemaExample() {
     reviewer_questions: ['Focused question a reviewer should ask.'],
     honest_title: 'Suggested more accurate PR title.',
     honest_description: 'Suggested PR description in Markdown.',
+    scoring_decisions: {
+      claim_mismatches: [
+        {
+          id: 'docs_claim_but_code_changed',
+          triggered: false,
+          claim: 'Claim from PR title/body, if triggered.',
+          reality: 'What the diff facts show, if triggered.',
+          evidence: ['file or fact from the input'],
+          reason: 'Why this fixed rubric item is or is not triggered.',
+        },
+      ],
+      signal_disclosures: [
+        {
+          id: 'migration_changed',
+          disclosed: false,
+          evidence: ['file or fact from the input'],
+          reason: 'Whether the PR text disclosed this detected signal.',
+        },
+      ],
+    },
     confidence: 'low | medium | high',
   };
 }
@@ -510,7 +540,31 @@ function normalizeAiReport(report) {
     reviewerQuestions: asArray(report.reviewer_questions || report.reviewerQuestions).map(asString).filter(Boolean),
     honestTitle: asString(report.honest_title || report.honestTitle),
     honestDescription: asString(report.honest_description || report.honestDescription),
+    scoringDecisions: normalizeScoringDecisions(report.scoring_decisions || report.scoringDecisions),
     confidence: asString(report.confidence || 'medium'),
+  };
+}
+
+function normalizeScoringDecisions(decisions) {
+  if (!decisions || typeof decisions !== 'object') {
+    return null;
+  }
+
+  return {
+    claimMismatches: asArray(decisions?.claim_mismatches || decisions?.claimMismatches).map((decision) => ({
+      id: asString(decision.id),
+      triggered: decision.triggered === true,
+      claim: asString(decision.claim),
+      reality: asString(decision.reality),
+      evidence: asArray(decision.evidence).map(asString).filter(Boolean),
+      reason: asString(decision.reason),
+    })),
+    signalDisclosures: asArray(decisions?.signal_disclosures || decisions?.signalDisclosures).map((decision) => ({
+      id: asString(decision.id),
+      disclosed: decision.disclosed === true,
+      evidence: asArray(decision.evidence).map(asString).filter(Boolean),
+      reason: asString(decision.reason),
+    })),
   };
 }
 

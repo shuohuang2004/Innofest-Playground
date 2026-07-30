@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { scanRules } from '../src/rules.js';
+import { applyAiScoring, scanRules } from '../src/rules.js';
 import { buildReport } from '../src/report.js';
 
 test('flags refactor claim when behavior and controller files changed', () => {
@@ -166,6 +166,77 @@ test('does not double-penalize docs wording when code scope is disclosed', () =>
   assert.ok(report.signals.some((signal) => signal.id === 'migration_changed' && !signal.disclosed));
 });
 
+test('uses AI scoring decisions with the fixed deduction rubric', () => {
+  const gitFacts = {
+    changedFiles: [{ status: 'M', path: 'demo-store/checkout-policy.yml' }],
+    diff: [
+      'diff --git a/demo-store/checkout-policy.yml b/demo-store/checkout-policy.yml',
+      '-  max_refund_days: 30',
+      '+  max_refund_days: 365',
+    ].join('\n'),
+  };
+  const preliminaryReport = scanRules({
+    title: 'Docs only: update checkout wording',
+    body: 'Updates checkout refund policy.',
+    gitFacts,
+  });
+
+  assert.deepEqual(
+    preliminaryReport.scoreBreakdown.deductions.map((deduction) => deduction.id),
+    ['docs_claim_but_code_changed'],
+  );
+
+  const finalReport = applyAiScoring(preliminaryReport, {
+    enabled: true,
+    confidence: 'high',
+    scoringDecisions: {
+      claimMismatches: [
+        {
+          id: 'docs_claim_but_code_changed',
+          triggered: false,
+          reason: 'The PR mentions the refund policy change, so it is not claiming docs-only scope.',
+        },
+      ],
+      signalDisclosures: [
+        {
+          id: 'business_rules_changed',
+          disclosed: true,
+          reason: 'Refund policy is disclosed.',
+          evidence: ['PR body: Updates checkout refund policy.'],
+        },
+      ],
+    },
+  });
+
+  assert.equal(finalReport.truthScore, 100);
+  assert.equal(finalReport.scoreBreakdown.scoringMode, 'ai_assisted');
+  assert.deepEqual(finalReport.scoreBreakdown.deductions, []);
+  assert.equal(finalReport.aiScoring.applied, true);
+});
+
+test('keeps rule-based score when AI returns no scoring decisions', () => {
+  const gitFacts = {
+    changedFiles: [{ status: 'M', path: 'demo-store/checkout-policy.yml' }],
+    diff: [
+      'diff --git a/demo-store/checkout-policy.yml b/demo-store/checkout-policy.yml',
+      '-  max_refund_days: 30',
+      '+  max_refund_days: 365',
+    ].join('\n'),
+  };
+  const preliminaryReport = scanRules({
+    title: 'Docs only: update checkout wording',
+    body: '',
+    gitFacts,
+  });
+  const finalReport = applyAiScoring(preliminaryReport, {
+    enabled: true,
+    scoringDecisions: null,
+  });
+
+  assert.equal(finalReport, preliminaryReport);
+  assert.equal(finalReport.scoreBreakdown.scoringMode, 'rule_based');
+});
+
 test('gives full truth score when business policy risk is disclosed', () => {
   const gitFacts = {
     changedFiles: [{ status: 'M', path: 'demo-store/checkout-policy.yml' }],
@@ -232,6 +303,47 @@ test('renders a GitHub-comment-style report without AI', () => {
   assert.match(report.markdown, /Scoring Rubric/);
   assert.match(report.markdown, /Make It Honest/);
   assert.doesNotMatch(report.markdown, /Reviewer Action/);
+});
+
+test('renders AI-assisted scoring wording when AI rubric decisions are applied', () => {
+  const gitFacts = {
+    repo: '/repo',
+    range: 'origin/main...HEAD',
+    requestedRange: 'origin/main...HEAD',
+    warnings: [],
+    changedFiles: [{ status: 'M', path: 'demo-store/checkout-policy.yml' }],
+    stats: ' demo-store/checkout-policy.yml | 2 +-',
+    commits: '',
+    diffTruncated: false,
+  };
+  const preliminaryReport = scanRules({
+    title: 'Docs only: update checkout wording',
+    body: 'Updates checkout refund policy.',
+    gitFacts: {
+      ...gitFacts,
+      diff: 'diff --git a/demo-store/checkout-policy.yml b/demo-store/checkout-policy.yml\n+  max_refund_days: 365',
+    },
+  });
+  const ruleReport = applyAiScoring(preliminaryReport, {
+    enabled: true,
+    confidence: 'high',
+    scoringDecisions: {
+      claimMismatches: [{ id: 'docs_claim_but_code_changed', triggered: false }],
+      signalDisclosures: [{ id: 'business_rules_changed', disclosed: true }],
+    },
+  });
+
+  const report = buildReport({
+    title: 'Docs only: update checkout wording',
+    body: 'Updates checkout refund policy.',
+    gitFacts,
+    ruleReport,
+    aiReport: { enabled: true, provider: 'openrouter', model: 'google/gemini-2.5-flash', summary: 'Looks honest.' },
+    githubComment: true,
+  });
+
+  assert.match(report.markdown, /Scoring:\*\* AI-assisted fixed rubric/);
+  assert.match(report.markdown, /AI selects fixed rubric items; script calculates the score/);
 });
 
 test('renders success banner image when a perfect truth score media URL is configured', () => {

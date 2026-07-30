@@ -39,7 +39,9 @@ function renderMarkdown({ title, gitFacts, ruleReport, aiReport, githubComment }
   lines.push(`## PR Lie Detector - Truth Score: ${ruleReport.truthScore}/100`);
   lines.push('');
   lines.push(`**Calculation:** ${formatScoreCalculation(ruleReport)}`);
-  lines.push(`**Review Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel} | **AI:** ${formatAiStatus(aiReport)}`);
+  lines.push(
+    `**Review Risk:** ${RISK_LABEL[ruleReport.riskLevel] || ruleReport.riskLevel} | **AI:** ${formatAiStatus(aiReport)} | **Scoring:** ${formatScoringMode(ruleReport)}`,
+  );
   lines.push('');
   appendRiskAlert(lines, { ruleReport, aiReport });
   lines.push('');
@@ -157,16 +159,32 @@ function formatAiStatus(aiReport) {
   return 'rule-based fallback';
 }
 
+function formatScoringMode(ruleReport) {
+  if (ruleReport.scoreBreakdown?.scoringMode === 'ai_assisted') {
+    return 'AI-assisted fixed rubric';
+  }
+
+  return 'fixed script rubric';
+}
+
+function formatScoringExplanation(ruleReport) {
+  if (ruleReport.scoreBreakdown?.scoringMode === 'ai_assisted') {
+    return 'AI selects fixed rubric items; script calculates the score.';
+  }
+
+  return 'AI does not affect the score.';
+}
+
 function appendScoreBreakdown(lines, ruleReport) {
   const breakdown = ruleReport.scoreBreakdown;
 
   if (!breakdown || breakdown.deductions.length === 0) {
     lines.push('- Starts at 100. No truth deductions were triggered.');
-    lines.push('- AI does not affect the score.');
+    lines.push(`- ${formatScoringExplanation(ruleReport)}`);
     return;
   }
 
-  lines.push(`- Starts at ${breakdown.baseScore}. AI does not affect the score.`);
+  lines.push(`- Starts at ${breakdown.baseScore}. ${formatScoringExplanation(ruleReport)}`);
   lines.push('');
   lines.push('| Points | Truth deduction triggered |');
   lines.push('| ---: | --- |');
@@ -184,7 +202,7 @@ function appendScoringRubric(lines, ruleReport) {
     return;
   }
 
-  lines.push(`All deductions are fixed ${breakdown.rubric.unit}-point units. AI does not affect the score.`);
+  lines.push(`All deductions are fixed ${breakdown.rubric.unit}-point units. ${formatScoringExplanation(ruleReport)}`);
   lines.push('');
   lines.push('**Claim mismatch rules**');
   lines.push('');
@@ -318,7 +336,7 @@ function buildReviewerActions({ title, ruleReport, aiReport }) {
   }
 
   if (actions.length < 3 && aiReport?.enabled) {
-    for (const question of aiReport.reviewerQuestions) {
+    for (const question of Array.isArray(aiReport.reviewerQuestions) ? aiReport.reviewerQuestions : []) {
       actions.push(`Ask: ${compactSentence(question, 130)}`);
 
       if (actions.length >= 3) {
@@ -352,13 +370,15 @@ function formatSignalEvidence(signal) {
 }
 
 function appendClaimReality(lines, { title, ruleReport, aiReport }) {
-  if (aiReport?.enabled && aiReport.claims.length > 0) {
-    for (const claim of aiReport.claims) {
+  const aiClaims = Array.isArray(aiReport?.claims) ? aiReport.claims : [];
+
+  if (aiReport?.enabled && aiClaims.length > 0) {
+    for (const claim of aiClaims) {
       lines.push(`- **Claim:** ${claim.claim || title || '(not stated)'}`);
       lines.push(`  **Reality:** ${claim.reality || '(AI did not provide a reality statement)'}`);
       lines.push(`  **Status:** ${claim.status || 'incomplete'}`);
 
-      if (claim.evidence.length > 0) {
+      if (Array.isArray(claim.evidence) && claim.evidence.length > 0) {
         lines.push(`  **Evidence:** ${claim.evidence.slice(0, 4).join('; ')}`);
       }
     }
@@ -401,7 +421,7 @@ function appendReviewerQuestions(lines, { ruleReport, aiReport }) {
   const questions = [];
 
   if (aiReport?.enabled) {
-    questions.push(...aiReport.reviewerQuestions);
+    questions.push(...(Array.isArray(aiReport.reviewerQuestions) ? aiReport.reviewerQuestions : []));
   }
 
   if (questions.length === 0) {

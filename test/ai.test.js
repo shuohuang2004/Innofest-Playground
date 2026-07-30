@@ -246,6 +246,23 @@ test('OpenRouter provider calls chat completions with Gemini 2.5 Flash', async (
                 reviewer_questions: ['Should the PR description mention the migration?'],
                 honest_title: 'Document template update behavior changes',
                 honest_description: 'Updates template behavior and database state.',
+                scoring_decisions: {
+                  claim_mismatches: [
+                    {
+                      id: 'docs_claim_but_code_changed',
+                      triggered: false,
+                      reason: 'No docs-only claim was made.',
+                    },
+                  ],
+                  signal_disclosures: [
+                    {
+                      id: 'migration_changed',
+                      disclosed: false,
+                      evidence: ['db/migrate/example.rb'],
+                      reason: 'Migration is not mentioned.',
+                    },
+                  ],
+                },
                 confidence: 'high',
               }),
             },
@@ -284,6 +301,24 @@ test('OpenRouter provider calls chat completions with Gemini 2.5 Flash', async (
   assert.equal(report.provider, 'openrouter');
   assert.equal(report.model, 'google/gemini-2.5-flash');
   assert.equal(report.summary, 'OpenRouter AI review is enabled.');
+  assert.deepEqual(report.scoringDecisions.claimMismatches, [
+    {
+      id: 'docs_claim_but_code_changed',
+      triggered: false,
+      claim: '',
+      reality: '',
+      evidence: [],
+      reason: 'No docs-only claim was made.',
+    },
+  ]);
+  assert.deepEqual(report.scoringDecisions.signalDisclosures, [
+    {
+      id: 'migration_changed',
+      disclosed: false,
+      evidence: ['db/migrate/example.rb'],
+      reason: 'Migration is not mentioned.',
+    },
+  ]);
 
   globalThis.fetch = originalFetch;
   restoreEnv('PR_LIE_DETECTOR_AI_PROVIDER', previousProvider);
